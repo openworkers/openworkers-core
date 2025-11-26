@@ -1,6 +1,30 @@
 [package]
-name = "openworkers-runtime"
-version = "0.1.0"
+name = "openworkers-core"
+version = "0.4.0"
 edition = "2024"
 
 [dependencies]
+bytes = "1"
+tokio = { version = "1", features = ["sync"] }
+serde = { version = "1", features = ["derive"] }
+
+[features]
+default = []
+actix = ["dep:actix-web", "dep:tokio-stream"]
+deno = ["dep:deno_core"]
+testing = []
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[dependencies.actix-web]
+version = "4"
+optional = true
+
+[dependencies.tokio-stream]
+version = "0.1"
+optional = true
+
+[dependencies.deno_core]
+version = "0.363.0"
+optional = true

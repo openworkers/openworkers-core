@@ -14,7 +14,10 @@ mod worker;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use http::{HttpRequest, HttpResponse, ResponseBody};
+pub use http::{
+    HttpMethod, HttpRequest, HttpResponse, HttpResponseMeta, RequestBody, ResponseBody,
+    ResponseSender,
+};
 pub use limits::RuntimeLimits;
 pub use log::{LogEvent, LogLevel};
 pub use script::Script;

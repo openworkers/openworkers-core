@@ -1,15 +1,15 @@
-use crate::{HttpRequest, HttpResponse};
+use crate::{HttpRequest, HttpResponse, ResponseSender};
 use tokio::sync::oneshot;
 
 /// Fetch event initialization data
 #[derive(Debug)]
 pub struct FetchInit {
     pub req: HttpRequest,
-    pub res_tx: oneshot::Sender<HttpResponse>,
+    pub res_tx: ResponseSender,
 }
 
 impl FetchInit {
-    pub fn new(req: HttpRequest, res_tx: oneshot::Sender<HttpResponse>) -> Self {
+    pub fn new(req: HttpRequest, res_tx: ResponseSender) -> Self {
         Self { req, res_tx }
     }
 }

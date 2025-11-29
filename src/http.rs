@@ -1,17 +1,112 @@
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 
-/// HTTP Request data (shared type for all runtimes)
-#[derive(Debug, Clone)]
-pub struct HttpRequest {
-    pub method: String,
-    pub url: String,
-    pub headers: HashMap<String, String>,
-    pub body: Option<Bytes>,
+/// HTTP method enum
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Patch,
+    Head,
+    Options,
 }
 
-/// Response body - either complete bytes, a stream, or empty
+impl HttpMethod {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "GET" => Some(Self::Get),
+            "POST" => Some(Self::Post),
+            "PUT" => Some(Self::Put),
+            "DELETE" => Some(Self::Delete),
+            "PATCH" => Some(Self::Patch),
+            "HEAD" => Some(Self::Head),
+            "OPTIONS" => Some(Self::Options),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Delete => "DELETE",
+            Self::Patch => "PATCH",
+            Self::Head => "HEAD",
+            Self::Options => "OPTIONS",
+        }
+    }
+}
+
+impl Default for HttpMethod {
+    fn default() -> Self {
+        Self::Get
+    }
+}
+
+impl std::fmt::Display for HttpMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// HTTP Request data (shared type for all runtimes)
+#[derive(Debug)]
+pub struct HttpRequest {
+    pub method: HttpMethod,
+    pub url: String,
+    pub headers: HashMap<String, String>,
+    pub body: RequestBody,
+}
+
+/// Request body - always buffered (no streaming input supported)
+///
+/// Streaming input is intentionally not supported because:
+/// - 99% of requests are small JSON payloads
+/// - HTTP servers (like actix) buffer the body before passing to workers
+/// - Supporting streaming input adds significant complexity to runtimes
+#[derive(Debug, Clone)]
+pub enum RequestBody {
+    /// No body
+    None,
+    /// Complete body (already buffered)
+    Bytes(Bytes),
+}
+
+impl RequestBody {
+    /// Check if this is an empty body
+    pub fn is_none(&self) -> bool {
+        matches!(self, RequestBody::None)
+    }
+
+    /// Check if this body has content
+    pub fn is_bytes(&self) -> bool {
+        matches!(self, RequestBody::Bytes(_))
+    }
+
+    /// Get bytes reference if present
+    pub fn as_bytes(&self) -> Option<&Bytes> {
+        match self {
+            RequestBody::Bytes(b) => Some(b),
+            RequestBody::None => None,
+        }
+    }
+
+    /// Convert to Option<Bytes>, consuming self
+    pub fn into_bytes(self) -> Option<Bytes> {
+        match self {
+            RequestBody::Bytes(b) => Some(b),
+            RequestBody::None => None,
+        }
+    }
+}
+
+/// Response body - supports streaming for SSE, chunked responses, etc.
 pub enum ResponseBody {
     /// No body
     None,
@@ -33,20 +128,12 @@ impl std::fmt::Debug for ResponseBody {
 }
 
 impl ResponseBody {
-    /// Get bytes if this is a Bytes variant, None otherwise
-    pub fn as_bytes(&self) -> Option<&Bytes> {
-        match self {
-            ResponseBody::Bytes(b) => Some(b),
-            _ => None,
-        }
-    }
-
-    /// Check if this is an empty response
+    /// Check if this is an empty body
     pub fn is_none(&self) -> bool {
         matches!(self, ResponseBody::None)
     }
 
-    /// Check if this is a streaming response
+    /// Check if this is a streaming body
     pub fn is_stream(&self) -> bool {
         matches!(self, ResponseBody::Stream(_))
     }
@@ -83,12 +170,22 @@ pub struct HttpResponse {
     pub body: ResponseBody,
 }
 
+pub type ResponseSender = tokio::sync::oneshot::Sender<HttpResponse>;
+
+/// HTTP Response metadata (for streaming responses - body comes separately)
+#[derive(Debug, Clone)]
+pub struct HttpResponseMeta {
+    pub status: u16,
+    pub status_text: String,
+    pub headers: HashMap<String, String>,
+}
+
 // Actix-web conversions (only available with actix feature)
 #[cfg(feature = "actix")]
 impl HttpRequest {
     /// Convert from actix_web::HttpRequest + body bytes
     pub fn from_actix(req: &actix_web::HttpRequest, body: Bytes) -> Self {
-        let method = req.method().to_string();
+        let method = HttpMethod::from_str(req.method().as_str()).unwrap_or_default();
         let url = format!(
             "{}://{}{}",
             req.connection_info().scheme(),
@@ -107,7 +204,11 @@ impl HttpRequest {
             method,
             url,
             headers,
-            body: if body.is_empty() { None } else { Some(body) },
+            body: if body.is_empty() {
+                RequestBody::None
+            } else {
+                RequestBody::Bytes(body)
+            },
         }
     }
 }

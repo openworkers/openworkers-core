@@ -50,6 +50,29 @@ impl ResponseBody {
     pub fn is_stream(&self) -> bool {
         matches!(self, ResponseBody::Stream(_))
     }
+
+    /// Collect all bytes from the body, consuming it.
+    /// Works for both Bytes and Stream variants.
+    pub async fn collect(self) -> Option<Bytes> {
+        match self {
+            ResponseBody::None => None,
+            ResponseBody::Bytes(b) => Some(b),
+            ResponseBody::Stream(mut rx) => {
+                let mut chunks = Vec::new();
+                while let Some(result) = rx.recv().await {
+                    if let Ok(bytes) = result {
+                        chunks.push(bytes);
+                    }
+                }
+                if chunks.is_empty() {
+                    None
+                } else {
+                    let total: Vec<u8> = chunks.iter().flat_map(|b| b.to_vec()).collect();
+                    Some(Bytes::from(total))
+                }
+            }
+        }
+    }
 }
 
 /// HTTP Response data (shared type for all runtimes)

@@ -50,8 +50,8 @@ macro_rules! generate_worker_tests {
             let response = rx.await.expect("Should receive response");
             assert_eq!(response.status, 200);
 
-            let body = response.body.as_bytes().expect("Should have body");
-            assert_eq!(String::from_utf8_lossy(body), "Hello, World!");
+            let body = response.body.collect().await.expect("Should have body");
+            assert_eq!(String::from_utf8_lossy(&body), "Hello, World!");
         }
 
         #[tokio::test]
@@ -90,8 +90,8 @@ macro_rules! generate_worker_tests {
                 .map(|(_, v)| v.as_str());
             assert_eq!(content_type, Some("application/json"));
 
-            let body = response.body.as_bytes().expect("Should have body");
-            let body_str = String::from_utf8_lossy(body);
+            let body = response.body.collect().await.expect("Should have body");
+            let body_str = String::from_utf8_lossy(&body);
             assert!(
                 body_str.contains("Hello"),
                 "Body should contain 'Hello': {}",
@@ -156,8 +156,8 @@ macro_rules! generate_worker_tests {
             worker.exec(task).await.expect("Task should execute");
 
             let response = rx.await.expect("Should receive response");
-            let body = response.body.as_bytes().expect("Should have body");
-            assert_eq!(String::from_utf8_lossy(body), "POST");
+            let body = response.body.collect().await.expect("Should have body");
+            assert_eq!(String::from_utf8_lossy(&body), "POST");
         }
 
         #[tokio::test]
@@ -185,8 +185,8 @@ macro_rules! generate_worker_tests {
             worker.exec(task).await.expect("Task should execute");
 
             let response = rx.await.expect("Should receive response");
-            let body = response.body.as_bytes().expect("Should have body");
-            assert_eq!(String::from_utf8_lossy(body), "/api/test");
+            let body = response.body.collect().await.expect("Should have body");
+            assert_eq!(String::from_utf8_lossy(&body), "/api/test");
         }
 
         #[tokio::test]
@@ -216,8 +216,8 @@ macro_rules! generate_worker_tests {
             worker.exec(task).await.expect("Task should execute");
 
             let response = rx.await.expect("Should receive response");
-            let body = response.body.as_bytes().expect("Should have body");
-            let body_str = String::from_utf8_lossy(body);
+            let body = response.body.collect().await.expect("Should have body");
+            let body_str = String::from_utf8_lossy(&body);
             assert!(
                 body_str.contains("true"),
                 "Body should contain async:true: {}",
@@ -361,8 +361,8 @@ macro_rules! generate_worker_tests {
                 worker.exec(task).await.expect("Task should execute");
 
                 let response = rx.await.expect("Should receive response");
-                let body = response.body.as_bytes().expect("Should have body");
-                assert_eq!(String::from_utf8_lossy(body), format!("Request {}", i));
+                let body = response.body.collect().await.expect("Should have body");
+                assert_eq!(String::from_utf8_lossy(&body), format!("Request {}", i));
             }
         }
     };

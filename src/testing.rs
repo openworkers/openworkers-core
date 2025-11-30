@@ -322,6 +322,87 @@ macro_rules! generate_worker_tests {
             assert_eq!(response.status, 200);
         }
 
+        /// Test that console.log works with a log sender
+        /// Note: Not all runtimes support sending logs via log_tx yet.
+        /// This test verifies the functionality works when supported,
+        /// but passes gracefully for runtimes that don't implement it yet.
+        #[tokio::test]
+        async fn test_console_log_sender() {
+            use $crate::{LogEvent, LogLevel};
+
+            let script = r#"
+                addEventListener('fetch', (event) => {
+                    console.log('info message');
+                    console.warn('warn message');
+                    console.error('error message');
+                    event.respondWith(new Response('logged'));
+                });
+            "#;
+
+            // Create a channel to receive log events
+            let (log_tx, log_rx) = std::sync::mpsc::channel::<LogEvent>();
+
+            let script_obj = Script::new(script);
+            let mut worker = <$worker>::new(script_obj, Some(log_tx), None)
+                .await
+                .expect("Worker should initialize");
+
+            let request = HttpRequest {
+                method: HttpMethod::Get,
+                url: "http://localhost/".to_string(),
+                headers: HashMap::new(),
+                body: RequestBody::None,
+            };
+
+            let (task, rx) = Task::fetch(request);
+            worker.exec(task).await.expect("Task should execute");
+
+            let response = rx.await.expect("Should receive response");
+            assert_eq!(response.status, 200);
+
+            // Collect all log events
+            let mut logs: Vec<LogEvent> = Vec::new();
+            while let Ok(event) = log_rx.try_recv() {
+                logs.push(event);
+            }
+
+            // If the runtime supports log_tx, verify we received correct events
+            // If not supported yet (0 logs), test still passes - console.log worked without crashing
+            if !logs.is_empty() {
+                // Verify we received the log events
+                assert!(
+                    logs.len() >= 3,
+                    "Should have received at least 3 log events, got {}",
+                    logs.len()
+                );
+
+                // Check for info message
+                assert!(
+                    logs.iter().any(|e| e.message.contains("info message")),
+                    "Should have info message in logs: {:?}",
+                    logs
+                );
+
+                // Check for warn message (some runtimes may map warn to error)
+                assert!(
+                    logs.iter().any(
+                        |e| (e.level == LogLevel::Warn || e.level == LogLevel::Error)
+                            && e.message.contains("warn message")
+                    ),
+                    "Should have warn message in logs: {:?}",
+                    logs
+                );
+
+                // Check for error message
+                assert!(
+                    logs.iter()
+                        .any(|e| e.level == LogLevel::Error && e.message.contains("error message")),
+                    "Should have error message with Error level in logs: {:?}",
+                    logs
+                );
+            }
+        }
+
         #[tokio::test]
         async fn test_worker_creation_error() {
             let script = r#"

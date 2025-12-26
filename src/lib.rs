@@ -26,7 +26,7 @@ pub use ops::{
     DefaultOps, DirectOperations, OpFuture, Operation, OperationResult, OperationsHandle,
     OperationsHandler,
 };
-pub use script::Script;
+pub use script::{BindingInfo, BindingType, Script};
 pub use task::{FetchInit, ScheduledInit, Task, TaskType};
 pub use termination::TerminationReason;
 pub use worker::Worker;

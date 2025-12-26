@@ -35,7 +35,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -68,7 +68,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -115,7 +115,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -143,7 +143,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -172,7 +172,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -203,7 +203,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -242,7 +242,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -276,7 +276,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -304,7 +304,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -322,28 +322,24 @@ macro_rules! generate_worker_tests {
             assert_eq!(response.status, 200);
         }
 
-        /// Test that console.log works with a log sender
-        /// Note: Not all runtimes support sending logs via log_tx yet.
-        /// This test verifies the functionality works when supported,
-        /// but passes gracefully for runtimes that don't implement it yet.
+        /// Test that console methods (log, warn, error) work correctly
+        /// Note: Log capture is handled by OperationsHandler, not via Worker constructor.
+        /// This test verifies console methods don't crash and the worker completes.
         #[tokio::test]
-        async fn test_console_log_sender() {
-            use $crate::{LogEvent, LogLevel};
-
+        async fn test_console_methods() {
             let script = r#"
                 addEventListener('fetch', (event) => {
                     console.log('info message');
                     console.warn('warn message');
                     console.error('error message');
+                    console.debug('debug message');
+                    console.trace('trace message');
                     event.respondWith(new Response('logged'));
                 });
             "#;
 
-            // Create a channel to receive log events
-            let (log_tx, log_rx) = std::sync::mpsc::channel::<LogEvent>();
-
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, Some(log_tx), None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -360,47 +356,8 @@ macro_rules! generate_worker_tests {
             let response = rx.await.expect("Should receive response");
             assert_eq!(response.status, 200);
 
-            // Collect all log events
-            let mut logs: Vec<LogEvent> = Vec::new();
-            while let Ok(event) = log_rx.try_recv() {
-                logs.push(event);
-            }
-
-            // If the runtime supports log_tx, verify we received correct events
-            // If not supported yet (0 logs), test still passes - console.log worked without crashing
-            if !logs.is_empty() {
-                // Verify we received the log events
-                assert!(
-                    logs.len() >= 3,
-                    "Should have received at least 3 log events, got {}",
-                    logs.len()
-                );
-
-                // Check for info message
-                assert!(
-                    logs.iter().any(|e| e.message.contains("info message")),
-                    "Should have info message in logs: {:?}",
-                    logs
-                );
-
-                // Check for warn message (some runtimes may map warn to error)
-                assert!(
-                    logs.iter().any(
-                        |e| (e.level == LogLevel::Warn || e.level == LogLevel::Error)
-                            && e.message.contains("warn message")
-                    ),
-                    "Should have warn message in logs: {:?}",
-                    logs
-                );
-
-                // Check for error message
-                assert!(
-                    logs.iter()
-                        .any(|e| e.level == LogLevel::Error && e.message.contains("error message")),
-                    "Should have error message with Error level in logs: {:?}",
-                    logs
-                );
-            }
+            let body = response.body.collect().await.expect("Should have body");
+            assert_eq!(String::from_utf8_lossy(&body), "logged");
         }
 
         #[tokio::test]
@@ -410,7 +367,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let result = <$worker>::new(script_obj, None, None).await;
+            let result = <$worker>::new(script_obj, None).await;
             assert!(
                 result.is_err(),
                 "Invalid script should fail to create worker"
@@ -427,7 +384,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -464,7 +421,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -499,7 +456,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -530,7 +487,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -567,7 +524,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -620,7 +577,7 @@ macro_rules! generate_worker_tests {
             "#;
 
             let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
+            let mut worker = <$worker>::new(script_obj, None)
                 .await
                 .expect("Worker should initialize");
 
@@ -653,85 +610,8 @@ macro_rules! generate_worker_tests {
             );
         }
 
-        /// Test fetch() with a ReadableStream as body
-        /// This is a critical edge case: streaming body in outgoing fetch requests
-        #[tokio::test]
-        async fn test_fetch_with_streaming_body() {
-            let script = r#"
-                addEventListener('fetch', async (event) => {
-                    // Create a ReadableStream with chunked data
-                    const chunks = ['Hello, ', 'streaming ', 'world!'];
-                    let index = 0;
-                    const stream = new ReadableStream({
-                        pull(controller) {
-                            if (index < chunks.length) {
-                                controller.enqueue(new TextEncoder().encode(chunks[index]));
-                                index++;
-                            } else {
-                                controller.close();
-                            }
-                        }
-                    });
-
-                    // Use the stream as body in a fetch request
-                    const response = await fetch('https://httpbin.workers.rocks/post', {
-                        method: 'POST',
-                        body: stream,
-                        headers: { 'Content-Type': 'text/plain' }
-                    });
-
-                    const result = await response.json();
-                    event.respondWith(new Response(JSON.stringify({
-                        success: true,
-                        received: result.data
-                    })));
-                });
-            "#;
-
-            let script_obj = Script::new(script);
-            let mut worker = <$worker>::new(script_obj, None, None)
-                .await
-                .expect("Worker should initialize");
-
-            let request = HttpRequest {
-                method: HttpMethod::Get,
-                url: "http://localhost/".to_string(),
-                headers: HashMap::new(),
-                body: RequestBody::None,
-            };
-
-            let (task, rx) = Task::fetch(request);
-
-            // Use timeout since this makes a network request
-            let exec_result =
-                tokio::time::timeout(std::time::Duration::from_secs(15), worker.exec(task)).await;
-
-            assert!(
-                exec_result.is_ok(),
-                "Execution should complete within timeout"
-            );
-            exec_result.unwrap().expect("Task should execute");
-
-            let response = tokio::time::timeout(std::time::Duration::from_secs(5), rx)
-                .await
-                .expect("Response timeout")
-                .expect("Should receive response");
-
-            assert_eq!(response.status, 200);
-
-            let body = response.body.collect().await.expect("Should have body");
-            let body_str = String::from_utf8_lossy(&body);
-            assert!(
-                body_str.contains("success"),
-                "Body should contain success: {}",
-                body_str
-            );
-            assert!(
-                body_str.contains("Hello, streaming world!"),
-                "Body should contain streamed data: {}",
-                body_str
-            );
-        }
+        // Note: test_fetch_with_streaming_body moved to runner's fetch_streaming_test.rs
+        // It requires real HTTP (RunnerOperations) and is not suitable for generic tests
     };
 }
 
@@ -770,7 +650,7 @@ macro_rules! generate_worker_benchmarks {
                         let script = Script::new(
                             r#"addEventListener('fetch', (e) => e.respondWith(new Response('OK')));"#,
                         );
-                        <$worker>::new(script, None, None).await.unwrap()
+                        <$worker>::new(script, None).await.unwrap()
                     })
                 })
             });
@@ -779,7 +659,7 @@ macro_rules! generate_worker_benchmarks {
                 let script = Script::new(
                     r#"addEventListener('fetch', (e) => e.respondWith(new Response('OK')));"#,
                 );
-                let mut worker = rt.block_on(<$worker>::new(script, None, None)).unwrap();
+                let mut worker = rt.block_on(<$worker>::new(script, None)).unwrap();
 
                 b.iter(|| {
                     rt.block_on(async {
@@ -800,7 +680,7 @@ macro_rules! generate_worker_benchmarks {
                 let script = Script::new(
                     r#"addEventListener('fetch', (e) => e.respondWith(new Response(JSON.stringify({a:1,b:2}))));"#,
                 );
-                let mut worker = rt.block_on(<$worker>::new(script, None, None)).unwrap();
+                let mut worker = rt.block_on(<$worker>::new(script, None)).unwrap();
 
                 b.iter(|| {
                     rt.block_on(async {
@@ -821,7 +701,7 @@ macro_rules! generate_worker_benchmarks {
                 let script = Script::new(
                     r#"addEventListener('fetch', (e) => e.respondWith(new Response('OK', {headers: {'X-A': '1', 'X-B': '2'}})));"#,
                 );
-                let mut worker = rt.block_on(<$worker>::new(script, None, None)).unwrap();
+                let mut worker = rt.block_on(<$worker>::new(script, None)).unwrap();
 
                 b.iter(|| {
                     rt.block_on(async {

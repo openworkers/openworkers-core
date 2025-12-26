@@ -1,18 +1,15 @@
-use crate::{LogEvent, RuntimeLimits, Script, Task, TerminationReason};
+use crate::{RuntimeLimits, Script, Task, TerminationReason};
 use std::future::Future;
-
-/// Type alias for log event sender
-pub type LogSender = std::sync::mpsc::Sender<LogEvent>;
 
 /// Common trait for all JavaScript runtime workers
 ///
 /// Note: Futures are not required to be `Send` because JS runtimes
 /// typically have thread-local contexts that cannot be shared across threads.
+/// Logging goes through OperationsHandler, not a separate channel.
 pub trait Worker: Sized {
     /// Create a new worker with the given script and options
     fn new(
         script: Script,
-        log_tx: Option<LogSender>,
         limits: Option<RuntimeLimits>,
     ) -> impl Future<Output = Result<Self, TerminationReason>>;
 

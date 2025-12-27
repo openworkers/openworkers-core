@@ -55,15 +55,24 @@ pub enum StorageResult {
     Error(String),
 }
 
-/// KV operation types for get/put/delete
+/// KV operation types for get/put/delete/list
 #[derive(Debug, Clone)]
 pub enum KvOp {
     /// Get a value by key
     Get { key: String },
-    /// Put a value (key + value as string)
-    Put { key: String, value: String },
+    /// Put a value (key + value as string, optional TTL in seconds)
+    Put {
+        key: String,
+        value: String,
+        expires_in: Option<u64>,
+    },
     /// Delete a key
     Delete { key: String },
+    /// List keys with optional prefix and limit
+    List {
+        prefix: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 /// Result from a KV operation
@@ -71,6 +80,8 @@ pub enum KvOp {
 pub enum KvResult {
     /// Value (for get) - None if key doesn't exist
     Value(Option<String>),
+    /// List of keys (for list)
+    Keys(Vec<String>),
     /// Success (for put/delete)
     Ok,
     /// Error message

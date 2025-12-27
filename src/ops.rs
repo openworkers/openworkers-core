@@ -55,6 +55,28 @@ pub enum StorageResult {
     Error(String),
 }
 
+/// KV operation types for get/put/delete
+#[derive(Debug, Clone)]
+pub enum KvOp {
+    /// Get a value by key
+    Get { key: String },
+    /// Put a value (key + value as string)
+    Put { key: String, value: String },
+    /// Delete a key
+    Delete { key: String },
+}
+
+/// Result from a KV operation
+#[derive(Debug)]
+pub enum KvResult {
+    /// Value (for get) - None if key doesn't exist
+    Value(Option<String>),
+    /// Success (for put/delete)
+    Ok,
+    /// Error message
+    Error(String),
+}
+
 /// Operations that runtimes delegate to the runner
 #[derive(Debug)]
 pub enum Operation {
@@ -77,6 +99,14 @@ pub enum Operation {
         op: StorageOp,
     },
 
+    /// KV operation (get/put/delete)
+    BindingKv {
+        /// Binding name (e.g., "MY_KV")
+        binding: String,
+        /// The operation to perform
+        op: KvOp,
+    },
+
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
 }
@@ -88,6 +118,9 @@ pub enum OperationResult {
 
     /// Storage operation result
     Storage(StorageResult),
+
+    /// KV operation result
+    Kv(KvResult),
 
     /// Acknowledgement for fire-and-forget operations (Log, etc.)
     Ack,
@@ -143,6 +176,14 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { StorageResult::Error(err) })
     }
 
+    /// Handle a KV operation (get/put/delete)
+    ///
+    /// Default: returns error "not implemented"
+    fn handle_binding_kv(&self, binding: &str, _op: KvOp) -> OpFuture<'_, KvResult> {
+        let err = format!("KV binding '{}' not implemented", binding);
+        Box::pin(async move { KvResult::Error(err) })
+    }
+
     /// Handle a log message
     ///
     /// Default: prints to stderr
@@ -165,6 +206,9 @@ pub trait OperationsHandler: Send + Sync {
                 }
                 Operation::BindingStorage { binding, op } => {
                     OperationResult::Storage(self.handle_binding_storage(&binding, op).await)
+                }
+                Operation::BindingKv { binding, op } => {
+                    OperationResult::Kv(self.handle_binding_kv(&binding, op).await)
                 }
                 Operation::Log { level, message } => {
                     self.handle_log(level, message);

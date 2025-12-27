@@ -23,8 +23,8 @@ pub use http::{
 pub use limits::RuntimeLimits;
 pub use log::{LogEvent, LogLevel};
 pub use ops::{
-    DefaultOps, DirectOperations, OpFuture, Operation, OperationResult, OperationsHandle,
-    OperationsHandler, StorageOp, StorageResult,
+    DefaultOps, DirectOperations, KvOp, KvResult, OpFuture, Operation, OperationResult,
+    OperationsHandle, OperationsHandler, StorageOp, StorageResult,
 };
 pub use script::{BindingInfo, BindingType, Script};
 pub use task::{FetchInit, ScheduledInit, Task, TaskType};

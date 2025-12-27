@@ -24,7 +24,7 @@ pub use limits::RuntimeLimits;
 pub use log::{LogEvent, LogLevel};
 pub use ops::{
     DefaultOps, DirectOperations, OpFuture, Operation, OperationResult, OperationsHandle,
-    OperationsHandler,
+    OperationsHandler, StorageOp, StorageResult,
 };
 pub use script::{BindingInfo, BindingType, Script};
 pub use task::{FetchInit, ScheduledInit, Task, TaskType};

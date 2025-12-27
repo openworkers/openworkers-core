@@ -24,6 +24,37 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+/// Storage operation types for get/put/head/list/delete
+#[derive(Debug, Clone)]
+pub enum StorageOp {
+    /// Get an object by key
+    Get { key: String },
+    /// Put an object (key + body)
+    Put { key: String, body: Vec<u8> },
+    /// Head (metadata only) for an object
+    Head { key: String },
+    /// List objects with optional prefix
+    List {
+        prefix: Option<String>,
+        limit: Option<u32>,
+    },
+    /// Delete an object
+    Delete { key: String },
+}
+
+/// Result from a storage operation
+#[derive(Debug)]
+pub enum StorageResult {
+    /// Object body (for get) or empty (for put/delete success)
+    Body(Option<Vec<u8>>),
+    /// Metadata from head operation
+    Head { size: u64, etag: Option<String> },
+    /// List of keys
+    List { keys: Vec<String>, truncated: bool },
+    /// Error message
+    Error(String),
+}
+
 /// Operations that runtimes delegate to the runner
 #[derive(Debug)]
 pub enum Operation {
@@ -38,6 +69,14 @@ pub enum Operation {
         request: HttpRequest,
     },
 
+    /// Storage operation (get/put/head/list/delete)
+    BindingStorage {
+        /// Binding name (e.g., "MY_STORAGE")
+        binding: String,
+        /// The operation to perform
+        op: StorageOp,
+    },
+
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
 }
@@ -46,6 +85,9 @@ pub enum Operation {
 pub enum OperationResult {
     /// HTTP response (used by Fetch and BindingFetch)
     Http(Result<HttpResponse, String>),
+
+    /// Storage operation result
+    Storage(StorageResult),
 
     /// Acknowledgement for fire-and-forget operations (Log, etc.)
     Ack,
@@ -93,6 +135,14 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { Err(err) })
     }
 
+    /// Handle a storage operation (get/put/head/list/delete)
+    ///
+    /// Default: returns error "not implemented"
+    fn handle_binding_storage(&self, binding: &str, _op: StorageOp) -> OpFuture<'_, StorageResult> {
+        let err = format!("Storage binding '{}' not implemented", binding);
+        Box::pin(async move { StorageResult::Error(err) })
+    }
+
     /// Handle a log message
     ///
     /// Default: prints to stderr
@@ -112,6 +162,9 @@ pub trait OperationsHandler: Send + Sync {
                 }
                 Operation::BindingFetch { binding, request } => {
                     OperationResult::Http(self.handle_binding_fetch(&binding, request).await)
+                }
+                Operation::BindingStorage { binding, op } => {
+                    OperationResult::Storage(self.handle_binding_storage(&binding, op).await)
                 }
                 Operation::Log { level, message } => {
                     self.handle_log(level, message);

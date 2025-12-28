@@ -9,6 +9,8 @@ pub enum BindingType {
     Storage,
     /// Key-value store
     Kv,
+    /// Database (PostgreSQL via postgate)
+    Database,
 }
 
 /// Binding info passed to the runtime (name + type, no credentials)
@@ -38,6 +40,10 @@ impl BindingInfo {
 
     pub fn kv(name: impl Into<String>) -> Self {
         Self::new(name, BindingType::Kv)
+    }
+
+    pub fn database(name: impl Into<String>) -> Self {
+        Self::new(name, BindingType::Database)
     }
 }
 

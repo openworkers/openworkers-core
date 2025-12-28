@@ -55,6 +55,27 @@ pub enum StorageResult {
     Error(String),
 }
 
+/// Database operation types for SQL queries
+#[derive(Debug, Clone)]
+pub enum DatabaseOp {
+    /// Execute a SQL query
+    Query {
+        /// SQL statement
+        sql: String,
+        /// Query parameters as JSON array
+        params: Vec<String>,
+    },
+}
+
+/// Result from a database operation
+#[derive(Debug)]
+pub enum DatabaseResult {
+    /// Rows as JSON array
+    Rows(String),
+    /// Error message
+    Error(String),
+}
+
 /// KV operation types for get/put/delete/list
 #[derive(Debug, Clone)]
 pub enum KvOp {
@@ -118,6 +139,14 @@ pub enum Operation {
         op: KvOp,
     },
 
+    /// Database operation (SQL query)
+    BindingDatabase {
+        /// Binding name (e.g., "MY_DB")
+        binding: String,
+        /// The operation to perform
+        op: DatabaseOp,
+    },
+
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
 }
@@ -132,6 +161,9 @@ pub enum OperationResult {
 
     /// KV operation result
     Kv(KvResult),
+
+    /// Database operation result
+    Database(DatabaseResult),
 
     /// Acknowledgement for fire-and-forget operations (Log, etc.)
     Ack,
@@ -195,6 +227,18 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { KvResult::Error(err) })
     }
 
+    /// Handle a database operation (SQL query)
+    ///
+    /// Default: returns error "not implemented"
+    fn handle_binding_database(
+        &self,
+        binding: &str,
+        _op: DatabaseOp,
+    ) -> OpFuture<'_, DatabaseResult> {
+        let err = format!("Database binding '{}' not implemented", binding);
+        Box::pin(async move { DatabaseResult::Error(err) })
+    }
+
     /// Handle a log message
     ///
     /// Default: prints to stderr
@@ -220,6 +264,9 @@ pub trait OperationsHandler: Send + Sync {
                 }
                 Operation::BindingKv { binding, op } => {
                     OperationResult::Kv(self.handle_binding_kv(&binding, op).await)
+                }
+                Operation::BindingDatabase { binding, op } => {
+                    OperationResult::Database(self.handle_binding_database(&binding, op).await)
                 }
                 Operation::Log { level, message } => {
                     self.handle_log(level, message);

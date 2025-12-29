@@ -147,6 +147,14 @@ pub enum Operation {
         op: DatabaseOp,
     },
 
+    /// Worker binding (worker-to-worker calls)
+    BindingWorker {
+        /// Binding name (e.g., "MY_WORKER")
+        binding: String,
+        /// The request to send to the target worker
+        request: HttpRequest,
+    },
+
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
 }
@@ -239,6 +247,18 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { DatabaseResult::Error(err) })
     }
 
+    /// Handle a worker binding (worker-to-worker call)
+    ///
+    /// Default: returns error "not implemented"
+    fn handle_binding_worker(
+        &self,
+        binding: &str,
+        _request: HttpRequest,
+    ) -> OpFuture<'_, Result<HttpResponse, String>> {
+        let err = format!("Worker binding '{}' not implemented", binding);
+        Box::pin(async move { Err(err) })
+    }
+
     /// Handle a log message
     ///
     /// Default: prints to stderr
@@ -267,6 +287,9 @@ pub trait OperationsHandler: Send + Sync {
                 }
                 Operation::BindingDatabase { binding, op } => {
                     OperationResult::Database(self.handle_binding_database(&binding, op).await)
+                }
+                Operation::BindingWorker { binding, request } => {
+                    OperationResult::Http(self.handle_binding_worker(&binding, request).await)
                 }
                 Operation::Log { level, message } => {
                     self.handle_log(level, message);

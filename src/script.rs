@@ -11,6 +11,8 @@ pub enum BindingType {
     Kv,
     /// Database (PostgreSQL via postgate)
     Database,
+    /// Worker-to-worker binding
+    Worker,
 }
 
 /// Binding info passed to the runtime (name + type, no credentials)
@@ -44,6 +46,10 @@ impl BindingInfo {
 
     pub fn database(name: impl Into<String>) -> Self {
         Self::new(name, BindingType::Database)
+    }
+
+    pub fn worker(name: impl Into<String>) -> Self {
+        Self::new(name, BindingType::Worker)
     }
 }
 

@@ -6,6 +6,7 @@
 mod http;
 mod limits;
 mod log;
+mod ops;
 mod script;
 mod task;
 mod termination;
@@ -18,9 +19,14 @@ pub use http::{
     HttpMethod, HttpRequest, HttpResponse, HttpResponseMeta, RequestBody, ResponseBody,
     ResponseSender,
 };
+
 pub use limits::RuntimeLimits;
 pub use log::{LogEvent, LogLevel};
-pub use script::Script;
+pub use ops::{
+    DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, KvOp, KvResult, OpFuture, Operation,
+    OperationResult, OperationsHandle, OperationsHandler, StorageOp, StorageResult,
+};
+pub use script::{BindingInfo, BindingType, Script};
 pub use task::{FetchInit, ScheduledInit, Task, TaskType};
 pub use termination::TerminationReason;
-pub use worker::{LogSender, Worker};
+pub use worker::Worker;

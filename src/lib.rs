@@ -12,9 +12,6 @@ mod task;
 mod termination;
 mod worker;
 
-#[cfg(feature = "testing")]
-pub mod testing;
-
 pub use http::{
     HttpMethod, HttpRequest, HttpResponse, HttpResponseMeta, RequestBody, ResponseBody,
     ResponseSender,

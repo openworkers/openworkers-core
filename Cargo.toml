@@ -1,6 +1,6 @@
 [package]
 name = "openworkers-core"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2024"
 
 [dependencies]
@@ -12,7 +12,6 @@ serde = { version = "1", features = ["derive"] }
 default = []
 actix = ["dep:actix-web", "dep:tokio-stream"]
 deno = ["dep:deno_core"]
-testing = []
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

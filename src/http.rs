@@ -17,19 +17,6 @@ pub enum HttpMethod {
 }
 
 impl HttpMethod {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_uppercase().as_str() {
-            "GET" => Some(Self::Get),
-            "POST" => Some(Self::Post),
-            "PUT" => Some(Self::Put),
-            "DELETE" => Some(Self::Delete),
-            "PATCH" => Some(Self::Patch),
-            "HEAD" => Some(Self::Head),
-            "OPTIONS" => Some(Self::Options),
-            _ => None,
-        }
-    }
-
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Get => "GET",
@@ -39,6 +26,23 @@ impl HttpMethod {
             Self::Patch => "PATCH",
             Self::Head => "HEAD",
             Self::Options => "OPTIONS",
+        }
+    }
+}
+
+impl std::str::FromStr for HttpMethod {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "GET" => Ok(Self::Get),
+            "POST" => Ok(Self::Post),
+            "PUT" => Ok(Self::Put),
+            "DELETE" => Ok(Self::Delete),
+            "PATCH" => Ok(Self::Patch),
+            "HEAD" => Ok(Self::Head),
+            "OPTIONS" => Ok(Self::Options),
+            _ => Err(()),
         }
     }
 }
@@ -185,7 +189,7 @@ pub struct HttpResponseMeta {
 impl HttpRequest {
     /// Convert from actix_web::HttpRequest + body bytes
     pub fn from_actix(req: &actix_web::HttpRequest, body: Bytes) -> Self {
-        let method = HttpMethod::from_str(req.method().as_str()).unwrap_or_default();
+        let method = req.method().as_str().parse().unwrap_or_default();
         let url = format!(
             "{}://{}{}",
             req.connection_info().scheme(),

@@ -81,10 +81,10 @@ pub enum DatabaseResult {
 pub enum KvOp {
     /// Get a value by key
     Get { key: String },
-    /// Put a value (key + value as string, optional TTL in seconds)
+    /// Put a value (key + JSON value, optional TTL in seconds)
     Put {
         key: String,
-        value: String,
+        value: serde_json::Value,
         expires_in: Option<u64>,
     },
     /// Delete a key
@@ -100,7 +100,7 @@ pub enum KvOp {
 #[derive(Debug)]
 pub enum KvResult {
     /// Value (for get) - None if key doesn't exist
-    Value(Option<String>),
+    Value(Option<serde_json::Value>),
     /// List of keys (for list)
     Keys(Vec<String>),
     /// Success (for put/delete)

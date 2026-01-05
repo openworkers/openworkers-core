@@ -251,3 +251,170 @@ impl From<HttpResponse> for actix_web::HttpResponse {
         }
     }
 }
+
+// Hyper conversions (only available with hyper feature)
+#[cfg(feature = "hyper")]
+impl HttpRequest {
+    /// Convert from hyper request parts + collected body bytes
+    pub fn from_hyper_parts(
+        method: &hyper::Method,
+        uri: &hyper::Uri,
+        headers: &hyper::HeaderMap,
+        body: Bytes,
+        scheme: &str,
+    ) -> Self {
+        let method = method.as_str().parse().unwrap_or_default();
+        let host = headers
+            .get("host")
+            .and_then(|h| h.to_str().ok())
+            .unwrap_or("localhost");
+        let url = format!("{}://{}{}", scheme, host, uri);
+
+        let mut header_map = HashMap::new();
+
+        for (key, value) in headers {
+            if let Ok(val_str) = value.to_str() {
+                header_map.insert(key.to_string(), val_str.to_string());
+            }
+        }
+
+        HttpRequest {
+            method,
+            url,
+            headers: header_map,
+            body: if body.is_empty() {
+                RequestBody::None
+            } else {
+                RequestBody::Bytes(body)
+            },
+        }
+    }
+}
+
+/// Streaming body for hyper that wraps an mpsc::Receiver
+/// and notifies when the client disconnects (via Drop)
+#[cfg(feature = "hyper")]
+pub struct StreamBody {
+    rx: mpsc::Receiver<Result<Bytes, String>>,
+    /// Optional channel to notify when client disconnects
+    disconnect_tx: Option<tokio::sync::oneshot::Sender<()>>,
+}
+
+#[cfg(feature = "hyper")]
+impl StreamBody {
+    pub fn new(rx: mpsc::Receiver<Result<Bytes, String>>) -> Self {
+        Self {
+            rx,
+            disconnect_tx: None,
+        }
+    }
+
+    /// Create a StreamBody with disconnect notification
+    pub fn with_disconnect_notify(
+        rx: mpsc::Receiver<Result<Bytes, String>>,
+        disconnect_tx: tokio::sync::oneshot::Sender<()>,
+    ) -> Self {
+        Self {
+            rx,
+            disconnect_tx: Some(disconnect_tx),
+        }
+    }
+}
+
+#[cfg(feature = "hyper")]
+impl Drop for StreamBody {
+    fn drop(&mut self) {
+        // Notify that the client disconnected (stream was dropped)
+        if let Some(tx) = self.disconnect_tx.take() {
+            let _ = tx.send(());
+        }
+    }
+}
+
+#[cfg(feature = "hyper")]
+impl hyper::body::Body for StreamBody {
+    type Data = Bytes;
+    type Error = std::io::Error;
+
+    fn poll_frame(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
+        match self.rx.poll_recv(cx) {
+            std::task::Poll::Ready(Some(Ok(bytes))) => {
+                std::task::Poll::Ready(Some(Ok(hyper::body::Frame::data(bytes))))
+            }
+            std::task::Poll::Ready(Some(Err(e))) => {
+                std::task::Poll::Ready(Some(Err(std::io::Error::new(std::io::ErrorKind::Other, e))))
+            }
+            std::task::Poll::Ready(None) => std::task::Poll::Ready(None),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+/// Response body enum for hyper - can be either full bytes or streaming
+#[cfg(feature = "hyper")]
+pub enum HyperBody {
+    Full(http_body_util::Full<Bytes>),
+    Stream(StreamBody),
+}
+
+#[cfg(feature = "hyper")]
+impl hyper::body::Body for HyperBody {
+    type Data = Bytes;
+    type Error = std::io::Error;
+
+    fn poll_frame(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
+        match self.get_mut() {
+            HyperBody::Full(body) => std::pin::Pin::new(body).poll_frame(cx).map(|opt| {
+                opt.map(|res| res.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
+            }),
+            HyperBody::Stream(body) => std::pin::Pin::new(body).poll_frame(cx),
+        }
+    }
+}
+
+#[cfg(feature = "hyper")]
+impl HttpResponse {
+    /// Convert to hyper::Response with optional disconnect notification
+    pub fn into_hyper(self) -> hyper::Response<HyperBody> {
+        self.into_hyper_with_disconnect(None)
+    }
+
+    /// Convert to hyper::Response with disconnect notification channel
+    pub fn into_hyper_with_disconnect(
+        self,
+        disconnect_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    ) -> hyper::Response<HyperBody> {
+        let mut builder = hyper::Response::builder().status(self.status);
+
+        for (key, value) in self.headers {
+            builder = builder.header(key, value);
+        }
+
+        let body = match self.body {
+            ResponseBody::None => HyperBody::Full(http_body_util::Full::new(Bytes::new())),
+            ResponseBody::Bytes(bytes) => HyperBody::Full(http_body_util::Full::new(bytes)),
+            ResponseBody::Stream(rx) => {
+                if let Some(tx) = disconnect_tx {
+                    HyperBody::Stream(StreamBody::with_disconnect_notify(rx, tx))
+                } else {
+                    HyperBody::Stream(StreamBody::new(rx))
+                }
+            }
+        };
+
+        builder.body(body).unwrap_or_else(|_| {
+            hyper::Response::builder()
+                .status(500)
+                .body(HyperBody::Full(http_body_util::Full::new(Bytes::from(
+                    "Failed to build response",
+                ))))
+                .unwrap()
+        })
+    }
+}

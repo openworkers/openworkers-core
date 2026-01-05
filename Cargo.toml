@@ -1,6 +1,6 @@
 [package]
 name = "openworkers-core"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 license = "MIT"
 
@@ -13,6 +13,7 @@ serde_json = "1.0.148"
 [features]
 default = []
 actix = ["dep:actix-web", "dep:tokio-stream"]
+hyper = ["dep:hyper", "dep:http-body-util", "dep:tokio-stream"]
 deno = ["dep:deno_core"]
 
 [dev-dependencies]
@@ -28,4 +29,13 @@ optional = true
 
 [dependencies.deno_core]
 version = "0.363.0"
+optional = true
+
+[dependencies.hyper]
+version = "1"
+features = ["server", "http1"]
+optional = true
+
+[dependencies.http-body-util]
+version = "0.1"
 optional = true

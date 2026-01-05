@@ -17,6 +17,9 @@ pub use http::{
     ResponseSender,
 };
 
+#[cfg(feature = "hyper")]
+pub use http::{HyperBody, StreamBody};
+
 pub use limits::RuntimeLimits;
 pub use log::{LogEvent, LogLevel};
 pub use ops::{

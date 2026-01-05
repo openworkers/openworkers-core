@@ -2,6 +2,7 @@
 name = "openworkers-core"
 version = "0.7.1"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 bytes = "1"

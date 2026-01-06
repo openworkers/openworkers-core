@@ -117,7 +117,7 @@ pub enum ResponseBody {
     /// Complete body (already buffered)
     Bytes(Bytes),
     /// Streaming body - receiver yields chunks as they become available
-    /// Uses bounded channel for backpressure support
+    /// Uses bounded channel for backpressure and memory safety
     Stream(mpsc::Receiver<Result<Bytes, String>>),
 }
 

@@ -8,7 +8,7 @@ license = "MIT"
 bytes = "1"
 tokio = { version = "1", features = ["sync"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.148"
+serde_json = "1.0"
 
 [features]
 default = []

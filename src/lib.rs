@@ -20,7 +20,7 @@ pub use http::{
 #[cfg(feature = "hyper")]
 pub use http::{HyperBody, StreamBody};
 
-pub use limits::RuntimeLimits;
+pub use limits::{BindingLimit, RuntimeLimits};
 pub use log::{LogEvent, LogLevel};
 pub use ops::{
     DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, KvOp, KvResult, OpFuture, Operation,

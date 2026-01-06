@@ -16,6 +16,9 @@ pub enum TerminationReason {
     /// Worker exceeded memory limit (heap or ArrayBuffer)
     MemoryLimit,
 
+    /// Worker exceeded maximum event loop iterations (safety limit)
+    MaxIterationsReached,
+
     // === JS errors (userland) ===
     /// Worker threw an uncaught exception (syntax error, throw, etc.)
     Exception(String),
@@ -39,7 +42,10 @@ impl TerminationReason {
     pub fn is_limit_exceeded(&self) -> bool {
         matches!(
             self,
-            Self::CpuTimeLimit | Self::WallClockTimeout | Self::MemoryLimit
+            Self::CpuTimeLimit
+                | Self::WallClockTimeout
+                | Self::MemoryLimit
+                | Self::MaxIterationsReached
         )
     }
 
@@ -62,6 +68,7 @@ impl TerminationReason {
             Self::CpuTimeLimit => "Worker exceeded CPU time limit",
             Self::WallClockTimeout => "Worker exceeded wall-clock time limit",
             Self::MemoryLimit => "Worker exceeded memory limit",
+            Self::MaxIterationsReached => "Worker exceeded maximum event loop iterations",
             Self::Exception(msg) => msg,
             Self::InitializationError(msg) => msg,
             Self::Terminated => "Worker was terminated",
@@ -73,8 +80,8 @@ impl TerminationReason {
     /// Get an appropriate HTTP status code for this termination reason
     pub fn http_status(&self) -> u16 {
         match self {
-            Self::CpuTimeLimit | Self::MemoryLimit => 429, // Too Many Requests
-            Self::WallClockTimeout => 504,                 // Gateway Timeout
+            Self::CpuTimeLimit | Self::MemoryLimit | Self::MaxIterationsReached => 429, // Too Many Requests
+            Self::WallClockTimeout => 504, // Gateway Timeout
             Self::Exception(_) | Self::InitializationError(_) | Self::Other(_) => 500, // Internal Server Error
             Self::Terminated | Self::Aborted => 503, // Service Unavailable
         }

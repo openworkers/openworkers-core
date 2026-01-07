@@ -1,5 +1,72 @@
 use std::collections::HashMap;
 
+/// Worker code - either JavaScript source or WebAssembly binary
+#[derive(Debug, Clone)]
+pub enum WorkerCode {
+    /// JavaScript/TypeScript source code (for V8, Deno, QuickJS, etc.)
+    JavaScript(String),
+    /// WebAssembly binary (for Wasmtime runtime)
+    WebAssembly(Vec<u8>),
+}
+
+impl WorkerCode {
+    /// Create JavaScript code
+    pub fn js(code: impl Into<String>) -> Self {
+        Self::JavaScript(code.into())
+    }
+
+    /// Create WebAssembly code from bytes
+    pub fn wasm(bytes: Vec<u8>) -> Self {
+        Self::WebAssembly(bytes)
+    }
+
+    /// Check if this is JavaScript
+    pub fn is_js(&self) -> bool {
+        matches!(self, Self::JavaScript(_))
+    }
+
+    /// Check if this is WebAssembly
+    pub fn is_wasm(&self) -> bool {
+        matches!(self, Self::WebAssembly(_))
+    }
+
+    /// Get JavaScript source if this is JS code
+    pub fn as_js(&self) -> Option<&str> {
+        match self {
+            Self::JavaScript(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Get WebAssembly bytes if this is WASM code
+    pub fn as_wasm(&self) -> Option<&[u8]> {
+        match self {
+            Self::WebAssembly(b) => Some(b),
+            _ => None,
+        }
+    }
+}
+
+// Convenience: String -> JavaScript
+impl From<String> for WorkerCode {
+    fn from(s: String) -> Self {
+        Self::JavaScript(s)
+    }
+}
+
+impl From<&str> for WorkerCode {
+    fn from(s: &str) -> Self {
+        Self::JavaScript(s.to_string())
+    }
+}
+
+// Convenience: Vec<u8> -> WebAssembly
+impl From<Vec<u8>> for WorkerCode {
+    fn from(b: Vec<u8>) -> Self {
+        Self::WebAssembly(b)
+    }
+}
+
 /// Type of binding (resource type)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BindingType {
@@ -56,7 +123,7 @@ impl BindingInfo {
 /// Script with code, environment variables, and bindings
 #[derive(Debug, Clone)]
 pub struct Script {
-    pub code: String,
+    pub code: WorkerCode,
     pub env: Option<HashMap<String, String>>,
     /// Bindings available to the worker (names + types only, no credentials)
     pub bindings: Vec<BindingInfo>,
@@ -64,7 +131,7 @@ pub struct Script {
 
 impl Script {
     /// Create a new script with code only
-    pub fn new(code: impl Into<String>) -> Self {
+    pub fn new(code: impl Into<WorkerCode>) -> Self {
         Self {
             code: code.into(),
             env: None,
@@ -73,7 +140,7 @@ impl Script {
     }
 
     /// Create a new script with code and environment variables
-    pub fn with_env(code: impl Into<String>, env: HashMap<String, String>) -> Self {
+    pub fn with_env(code: impl Into<WorkerCode>, env: HashMap<String, String>) -> Self {
         Self {
             code: code.into(),
             env: Some(env),
@@ -83,7 +150,7 @@ impl Script {
 
     /// Create a new script with code, environment variables, and bindings
     pub fn with_bindings(
-        code: impl Into<String>,
+        code: impl Into<WorkerCode>,
         env: Option<HashMap<String, String>>,
         bindings: Vec<BindingInfo>,
     ) -> Self {

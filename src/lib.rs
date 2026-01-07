@@ -26,7 +26,7 @@ pub use ops::{
     DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, KvOp, KvResult, OpFuture, Operation,
     OperationResult, OperationsHandle, OperationsHandler, StorageOp, StorageResult,
 };
-pub use script::{BindingInfo, BindingType, Script};
+pub use script::{BindingInfo, BindingType, Script, WorkerCode};
 pub use task::{FetchInit, ScheduledInit, Task, TaskType};
 pub use termination::TerminationReason;
 pub use worker::Worker;

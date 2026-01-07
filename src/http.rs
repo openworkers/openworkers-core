@@ -82,6 +82,12 @@ pub enum RequestBody {
     Bytes(Bytes),
 }
 
+impl Default for RequestBody {
+    fn default() -> Self {
+        RequestBody::None
+    }
+}
+
 impl RequestBody {
     /// Check if this is an empty body
     pub fn is_none(&self) -> bool {

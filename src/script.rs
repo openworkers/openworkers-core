@@ -6,6 +6,7 @@ pub enum WorkerCode {
     /// JavaScript/TypeScript source code (for V8, Deno, QuickJS, etc.)
     JavaScript(String),
     /// WebAssembly binary (for Wasmtime runtime)
+    #[cfg(feature = "wasm")]
     WebAssembly(Vec<u8>),
     /// Pre-compiled snapshot (platform-specific, determined by the runtime)
     Snapshot(Vec<u8>),
@@ -18,6 +19,7 @@ impl WorkerCode {
     }
 
     /// Create WebAssembly code from bytes
+    #[cfg(feature = "wasm")]
     pub fn wasm(bytes: Vec<u8>) -> Self {
         Self::WebAssembly(bytes)
     }
@@ -33,6 +35,7 @@ impl WorkerCode {
     }
 
     /// Check if this is WebAssembly
+    #[cfg(feature = "wasm")]
     pub fn is_wasm(&self) -> bool {
         matches!(self, Self::WebAssembly(_))
     }
@@ -51,6 +54,7 @@ impl WorkerCode {
     }
 
     /// Get WebAssembly bytes if this is WASM code
+    #[cfg(feature = "wasm")]
     pub fn as_wasm(&self) -> Option<&[u8]> {
         match self {
             Self::WebAssembly(b) => Some(b),
@@ -81,6 +85,7 @@ impl From<&str> for WorkerCode {
 }
 
 // Convenience: Vec<u8> -> WebAssembly
+#[cfg(feature = "wasm")]
 impl From<Vec<u8>> for WorkerCode {
     fn from(b: Vec<u8>) -> Self {
         Self::WebAssembly(b)

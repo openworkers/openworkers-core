@@ -1,6 +1,6 @@
 [package]
 name = "openworkers-core"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2024"
 license = "MIT"
 
@@ -15,6 +15,7 @@ default = []
 actix = ["dep:actix-web", "dep:tokio-stream"]
 hyper = ["dep:hyper", "dep:http-body-util", "dep:tokio-stream"]
 deno = ["dep:deno_core"]
+wasm = []
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

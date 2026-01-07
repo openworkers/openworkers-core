@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
-/// Worker code - either JavaScript source or WebAssembly binary
+/// Worker code - JavaScript source, WebAssembly binary, or pre-compiled snapshot
 #[derive(Debug, Clone)]
 pub enum WorkerCode {
     /// JavaScript/TypeScript source code (for V8, Deno, QuickJS, etc.)
     JavaScript(String),
     /// WebAssembly binary (for Wasmtime runtime)
     WebAssembly(Vec<u8>),
+    /// Pre-compiled snapshot (platform-specific, determined by the runtime)
+    Snapshot(Vec<u8>),
 }
 
 impl WorkerCode {
@@ -20,6 +22,11 @@ impl WorkerCode {
         Self::WebAssembly(bytes)
     }
 
+    /// Create Snapshot from bytes
+    pub fn snapshot(bytes: Vec<u8>) -> Self {
+        Self::Snapshot(bytes)
+    }
+
     /// Check if this is JavaScript
     pub fn is_js(&self) -> bool {
         matches!(self, Self::JavaScript(_))
@@ -28,6 +35,11 @@ impl WorkerCode {
     /// Check if this is WebAssembly
     pub fn is_wasm(&self) -> bool {
         matches!(self, Self::WebAssembly(_))
+    }
+
+    /// Check if this is a Snapshot
+    pub fn is_snapshot(&self) -> bool {
+        matches!(self, Self::Snapshot(_))
     }
 
     /// Get JavaScript source if this is JS code
@@ -42,6 +54,14 @@ impl WorkerCode {
     pub fn as_wasm(&self) -> Option<&[u8]> {
         match self {
             Self::WebAssembly(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    /// Get Snapshot bytes if this is a Snapshot
+    pub fn as_snapshot(&self) -> Option<&[u8]> {
+        match self {
+            Self::Snapshot(b) => Some(b),
             _ => None,
         }
     }

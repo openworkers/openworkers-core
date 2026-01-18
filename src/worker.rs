@@ -1,4 +1,4 @@
-use crate::{RuntimeLimits, Script, Task, TerminationReason};
+use crate::{Event, RuntimeLimits, Script, TerminationReason};
 use std::future::Future;
 
 /// Common trait for all JavaScript runtime workers
@@ -18,7 +18,7 @@ pub trait Worker: Sized {
     /// Returns:
     /// - `Ok(())` if the JS handler executed successfully
     /// - `Err(TerminationReason)` if something went wrong
-    fn exec(&mut self, task: Task) -> impl Future<Output = Result<(), TerminationReason>>;
+    fn exec(&mut self, task: Event) -> impl Future<Output = Result<(), TerminationReason>>;
 
     /// Abort the worker execution
     ///

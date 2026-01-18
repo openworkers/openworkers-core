@@ -27,6 +27,6 @@ pub use ops::{
     OperationResult, OperationsHandle, OperationsHandler, StorageOp, StorageResult,
 };
 pub use script::{BindingInfo, BindingType, Script, WorkerCode};
-pub use task::{FetchInit, ScheduledInit, Task, TaskType};
+pub use task::{Event, EventType, FetchInit, TaskInit, TaskResult, TaskSource};
 pub use termination::TerminationReason;
 pub use worker::Worker;

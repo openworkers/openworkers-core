@@ -68,18 +68,29 @@ pub struct HttpRequest {
     pub body: RequestBody,
 }
 
-/// Request body - always buffered (no streaming input supported)
+/// Request body - supports both buffered and streaming modes
 ///
-/// Streaming input is intentionally not supported because:
-/// - 99% of requests are small JSON payloads
-/// - HTTP servers (like actix) buffer the body before passing to workers
-/// - Supporting streaming input adds significant complexity to runtimes
-#[derive(Debug, Clone)]
+/// Most requests use `Bytes` (buffered) for simplicity.
+/// Use `Stream` for large uploads or proxy/gateway use cases where
+/// buffering would consume too much memory.
 pub enum RequestBody {
     /// No body
     None,
     /// Complete body (already buffered)
     Bytes(Bytes),
+    /// Streaming body - receiver yields chunks as they arrive from upstream
+    /// Uses bounded channel for backpressure and memory safety
+    Stream(mpsc::Receiver<Result<Bytes, String>>),
+}
+
+impl std::fmt::Debug for RequestBody {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestBody::None => write!(f, "None"),
+            RequestBody::Bytes(b) => write!(f, "Bytes({} bytes)", b.len()),
+            RequestBody::Stream(_) => write!(f, "Stream(...)"),
+        }
+    }
 }
 
 impl Default for RequestBody {
@@ -94,24 +105,63 @@ impl RequestBody {
         matches!(self, RequestBody::None)
     }
 
-    /// Check if this body has content
+    /// Check if this body has buffered content
     pub fn is_bytes(&self) -> bool {
         matches!(self, RequestBody::Bytes(_))
     }
 
-    /// Get bytes reference if present
+    /// Check if this is a streaming body
+    pub fn is_stream(&self) -> bool {
+        matches!(self, RequestBody::Stream(_))
+    }
+
+    /// Get bytes reference if present (only works for buffered body)
     pub fn as_bytes(&self) -> Option<&Bytes> {
         match self {
             RequestBody::Bytes(b) => Some(b),
-            RequestBody::None => None,
+            _ => None,
         }
     }
 
-    /// Convert to Option<Bytes>, consuming self
+    /// Convert to Option<Bytes>, consuming self (only works for buffered body)
+    /// For streaming bodies, use `collect()` instead
     pub fn into_bytes(self) -> Option<Bytes> {
         match self {
             RequestBody::Bytes(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    /// Collect all bytes from the body, consuming it.
+    /// Works for both Bytes and Stream variants.
+    pub async fn collect(self) -> Option<Bytes> {
+        match self {
             RequestBody::None => None,
+            RequestBody::Bytes(b) => Some(b),
+            RequestBody::Stream(mut rx) => {
+                let mut chunks = Vec::new();
+
+                while let Some(result) = rx.recv().await {
+                    if let Ok(bytes) = result {
+                        chunks.push(bytes);
+                    }
+                }
+
+                if chunks.is_empty() {
+                    None
+                } else {
+                    let total: Vec<u8> = chunks.iter().flat_map(|b| b.to_vec()).collect();
+                    Some(Bytes::from(total))
+                }
+            }
+        }
+    }
+
+    /// Take the receiver from a streaming body (for manual chunk handling)
+    pub fn into_stream(self) -> Option<mpsc::Receiver<Result<Bytes, String>>> {
+        match self {
+            RequestBody::Stream(rx) => Some(rx),
+            _ => None,
         }
     }
 }
@@ -156,11 +206,13 @@ impl ResponseBody {
             ResponseBody::Bytes(b) => Some(b),
             ResponseBody::Stream(mut rx) => {
                 let mut chunks = Vec::new();
+
                 while let Some(result) = rx.recv().await {
                     if let Ok(bytes) = result {
                         chunks.push(bytes);
                     }
                 }
+
                 if chunks.is_empty() {
                     None
                 } else {
@@ -204,6 +256,7 @@ impl HttpRequest {
         );
 
         let mut headers = HashMap::new();
+
         for (key, value) in req.headers() {
             if let Ok(val_str) = value.to_str() {
                 headers.insert(key.to_string(), val_str.to_string());
@@ -261,7 +314,7 @@ impl From<HttpResponse> for actix_web::HttpResponse {
 // Hyper conversions (only available with hyper feature)
 #[cfg(feature = "hyper")]
 impl HttpRequest {
-    /// Convert from hyper request parts + collected body bytes
+    /// Convert from hyper request parts + collected body bytes (buffered mode)
     pub fn from_hyper_parts(
         method: &hyper::Method,
         uri: &hyper::Uri,
@@ -294,6 +347,46 @@ impl HttpRequest {
                 RequestBody::Bytes(body)
             },
         }
+    }
+
+    /// Convert from hyper request parts with streaming body (zero-copy mode)
+    ///
+    /// Returns the HttpRequest and a sender that the caller should use to
+    /// pump body chunks from the hyper body into the request.
+    ///
+    /// Use `buffer_size` to control backpressure (recommended: 16-32 chunks).
+    pub fn from_hyper_parts_streaming(
+        method: &hyper::Method,
+        uri: &hyper::Uri,
+        headers: &hyper::HeaderMap,
+        scheme: &str,
+        buffer_size: usize,
+    ) -> (Self, mpsc::Sender<Result<Bytes, String>>) {
+        let method = method.as_str().parse().unwrap_or_default();
+        let host = headers
+            .get("host")
+            .and_then(|h| h.to_str().ok())
+            .unwrap_or("localhost");
+        let url = format!("{}://{}{}", scheme, host, uri);
+
+        let mut header_map = HashMap::new();
+
+        for (key, value) in headers {
+            if let Ok(val_str) = value.to_str() {
+                header_map.insert(key.to_string(), val_str.to_string());
+            }
+        }
+
+        let (tx, rx) = mpsc::channel(buffer_size);
+
+        let request = HttpRequest {
+            method,
+            url,
+            headers: header_map,
+            body: RequestBody::Stream(rx),
+        };
+
+        (request, tx)
     }
 }
 

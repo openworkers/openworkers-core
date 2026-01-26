@@ -55,6 +55,35 @@ pub enum StorageResult {
     Error(String),
 }
 
+/// SQL primitive value - used directly or within arrays
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum SqlPrimitive {
+    /// NULL value
+    Null,
+    /// Boolean value
+    Bool(bool),
+    /// Integer value (i64)
+    Int(i64),
+    /// Floating point value (f64)
+    Float(f64),
+    /// String value
+    String(String),
+}
+
+/// SQL parameter value - primitives or arrays of primitives
+///
+/// Uses `#[serde(untagged)]` for transparent deserialization from JS values.
+/// PostgreSQL supports arrays of primitives (e.g., `WHERE id = ANY($1::int[])`).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum SqlParam {
+    /// Array of primitives (for ANY() queries, etc.)
+    Array(Vec<SqlPrimitive>),
+    /// Single primitive value
+    Primitive(SqlPrimitive),
+}
+
 /// Database operation types for SQL queries
 #[derive(Debug, Clone)]
 pub enum DatabaseOp {
@@ -62,8 +91,8 @@ pub enum DatabaseOp {
     Query {
         /// SQL statement
         sql: String,
-        /// Query parameters as JSON array
-        params: Vec<String>,
+        /// Query parameters
+        params: Vec<SqlParam>,
     },
 }
 

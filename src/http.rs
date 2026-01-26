@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 
 /// HTTP method enum
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum HttpMethod {
+    #[default]
     Get,
     Post,
     Put,
@@ -47,12 +48,6 @@ impl std::str::FromStr for HttpMethod {
     }
 }
 
-impl Default for HttpMethod {
-    fn default() -> Self {
-        Self::Get
-    }
-}
-
 impl std::fmt::Display for HttpMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
@@ -73,8 +68,10 @@ pub struct HttpRequest {
 /// Most requests use `Bytes` (buffered) for simplicity.
 /// Use `Stream` for large uploads or proxy/gateway use cases where
 /// buffering would consume too much memory.
+#[derive(Default)]
 pub enum RequestBody {
     /// No body
+    #[default]
     None,
     /// Complete body (already buffered)
     Bytes(Bytes),
@@ -90,12 +87,6 @@ impl std::fmt::Debug for RequestBody {
             RequestBody::Bytes(b) => write!(f, "Bytes({} bytes)", b.len()),
             RequestBody::Stream(_) => write!(f, "Stream(...)"),
         }
-    }
-}
-
-impl Default for RequestBody {
-    fn default() -> Self {
-        RequestBody::None
     }
 }
 

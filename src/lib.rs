@@ -24,7 +24,8 @@ pub use limits::{BindingLimit, RuntimeLimits};
 pub use log::{LogEvent, LogLevel};
 pub use ops::{
     DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, KvOp, KvResult, OpFuture, Operation,
-    OperationResult, OperationsHandle, OperationsHandler, StorageOp, StorageResult,
+    OperationResult, OperationsHandle, OperationsHandler, SqlParam, SqlPrimitive, StorageOp,
+    StorageResult,
 };
 pub use script::{BindingInfo, BindingType, Script, WorkerCode};
 pub use task::{Event, EventType, FetchInit, TaskInit, TaskResult, TaskSource};

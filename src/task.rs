@@ -177,6 +177,15 @@ pub enum EventType {
     Task,
 }
 
+impl std::fmt::Display for EventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EventType::Fetch => write!(f, "fetch"),
+            EventType::Task => write!(f, "task"),
+        }
+    }
+}
+
 /// Event to be executed by a Worker
 pub enum Event {
     /// HTTP request handler (fetch event)

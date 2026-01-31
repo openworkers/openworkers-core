@@ -24,11 +24,13 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-/// Storage operation types for get/put/head/list/delete
+/// Storage operation types for get/put/head/list/delete/fetch
 #[derive(Debug, Clone)]
 pub enum StorageOp {
-    /// Get an object by key
+    /// Get an object by key (returns body as bytes)
     Get { key: String },
+    /// Fetch an object by key (returns full HTTP response with headers)
+    Fetch { key: String },
     /// Put an object (key + body)
     Put { key: String, body: Vec<u8> },
     /// Head (metadata only) for an object
@@ -47,6 +49,8 @@ pub enum StorageOp {
 pub enum StorageResult {
     /// Object body (for get) or empty (for put/delete success)
     Body(Option<Vec<u8>>),
+    /// Full HTTP response (for fetch)
+    Response(HttpResponse),
     /// Metadata from head operation
     Head { size: u64, etag: Option<String> },
     /// List of keys

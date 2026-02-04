@@ -230,7 +230,7 @@ pub type ResponseSender = tokio::sync::oneshot::Sender<HttpResponse>;
 pub struct HttpResponseMeta {
     pub status: u16,
     pub status_text: String,
-    pub headers: HashMap<String, String>,
+    pub headers: Vec<(String, String)>,
 }
 
 // Actix-web conversions (only available with actix feature)

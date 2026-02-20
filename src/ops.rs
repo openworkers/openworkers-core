@@ -233,6 +233,15 @@ pub type OpFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// }
 /// ```
 pub trait OperationsHandler: Send + Sync {
+    /// Downcast to concrete type (for warm isolate reuse).
+    ///
+    /// Default implementation uses `Any`. Override if your handler needs
+    /// to be downcasted for per-request state updates.
+    fn as_any(&self) -> &dyn std::any::Any {
+        // Default: no downcasting support (returns a dummy type)
+        &()
+    }
+
     /// Handle a fetch request
     ///
     /// Default: returns error "Fetch not available"

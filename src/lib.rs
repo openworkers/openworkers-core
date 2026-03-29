@@ -10,6 +10,7 @@ mod ops;
 mod script;
 mod task;
 mod termination;
+mod websocket;
 mod worker;
 
 pub use http::{
@@ -30,4 +31,5 @@ pub use ops::{
 pub use script::{BindingInfo, BindingType, Script, WorkerCode};
 pub use task::{Event, EventType, FetchInit, TaskInit, TaskResult, TaskSource};
 pub use termination::TerminationReason;
+pub use websocket::{WebSocketConnection, WebSocketId, WebSocketIncoming, WebSocketOutgoing};
 pub use worker::Worker;

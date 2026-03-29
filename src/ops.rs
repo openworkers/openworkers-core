@@ -19,7 +19,8 @@
 //!
 //! Runners only need to override the methods they want to implement.
 
-use crate::{HttpRequest, HttpResponse, LogLevel};
+use crate::{HttpRequest, HttpResponse, LogLevel, WebSocketConnection};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -190,6 +191,14 @@ pub enum Operation {
 
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
+
+    /// Open an outgoing WebSocket connection
+    WebSocketConnect {
+        /// WebSocket URL (ws:// or wss://)
+        url: String,
+        /// Additional headers for the handshake
+        headers: HashMap<String, String>,
+    },
 }
 
 /// Results for operations
@@ -208,6 +217,9 @@ pub enum OperationResult {
 
     /// Acknowledgement for fire-and-forget operations (Log, etc.)
     Ack,
+
+    /// WebSocket connection established (contains bidirectional channels)
+    WebSocket(Result<WebSocketConnection, String>),
 }
 
 /// Future type alias for async operation results
@@ -301,6 +313,17 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { Err(err) })
     }
 
+    /// Handle an outgoing WebSocket connection
+    ///
+    /// Default: returns error "WebSocket not available"
+    fn handle_websocket_connect(
+        &self,
+        _url: &str,
+        _headers: HashMap<String, String>,
+    ) -> OpFuture<'_, Result<WebSocketConnection, String>> {
+        Box::pin(async { Err("WebSocket not available".into()) })
+    }
+
     /// Handle a log message
     ///
     /// Default: prints to stderr
@@ -336,6 +359,10 @@ pub trait OperationsHandler: Send + Sync {
                 Operation::Log { level, message } => {
                     self.handle_log(level, message);
                     OperationResult::Ack
+                }
+
+                Operation::WebSocketConnect { url, headers } => {
+                    OperationResult::WebSocket(self.handle_websocket_connect(&url, headers).await)
                 }
             }
         })

@@ -1,7 +1,7 @@
 //! Common types for OpenWorkers runtimes
 //!
-//! This crate provides shared types used across all JS runtime implementations
-//! (Deno, V8, QuickJS, JSC, Boa).
+//! This crate provides shared types used across all runtime implementations
+//! (V8, JSC, QuickJS, Boa, Nova, Wasmtime).
 
 mod http;
 mod limits;

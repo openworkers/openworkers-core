@@ -16,7 +16,6 @@ openworkers-core = "0.15"
 |---------|-------------|
 | `actix` | Actix-web request/response conversions |
 | `hyper` | Hyper request/response conversions |
-| `deno`  | `deno_core::Resource` impls for the event types |
 | `wasm`  | `WorkerCode::WebAssembly` |
 
 ## Worker

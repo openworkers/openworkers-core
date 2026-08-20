@@ -20,13 +20,6 @@ impl FetchInit {
     }
 }
 
-#[cfg(feature = "deno")]
-impl deno_core::Resource for FetchInit {
-    fn close(self: std::rc::Rc<Self>) {
-        // Resource is being closed, nothing to clean up
-    }
-}
-
 // ============================================================================
 // Task Event (unified task execution model)
 // ============================================================================
@@ -159,13 +152,6 @@ impl TaskInit {
             attempt: 1,
             res_tx,
         }
-    }
-}
-
-#[cfg(feature = "deno")]
-impl deno_core::Resource for TaskInit {
-    fn close(self: std::rc::Rc<Self>) {
-        // Resource is being closed, nothing to clean up
     }
 }
 

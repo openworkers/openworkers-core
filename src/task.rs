@@ -39,6 +39,9 @@ pub enum TaskSource {
     Schedule {
         /// Unix timestamp (ms) when the task was scheduled to run
         time: u64,
+        /// Cron expression that fired, when the scheduler provides it
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cron: Option<String>,
     },
 
     /// Triggered by another task (chaining)
@@ -222,9 +225,11 @@ impl Event {
         )
     }
 
-    /// Create a task event from a schedule (cron)
+    /// Create a task event from a schedule, without the cron expression
     pub fn from_schedule(task_id: String, time: u64) -> (Self, oneshot::Receiver<TaskResult>) {
-        Self::task(task_id, None, Some(TaskSource::Schedule { time }), 1)
+        let source = TaskSource::Schedule { time, cron: None };
+
+        Self::task(task_id, None, Some(source), 1)
     }
 
     /// Create a task event for manual invocation (CLI, API, etc.)
@@ -234,5 +239,41 @@ impl Event {
         origin: Option<String>,
     ) -> (Self, oneshot::Receiver<TaskResult>) {
         Self::task(task_id, payload, Some(TaskSource::Invoke { origin }), 1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schedule_source_round_trips_with_cron() {
+        let json = r#"{"type":"schedule","time":1700000000000,"cron":"0 * * * *"}"#;
+
+        let source: TaskSource = serde_json::from_str(json).unwrap();
+
+        match &source {
+            TaskSource::Schedule { time, cron } => {
+                assert_eq!(*time, 1700000000000);
+                assert_eq!(cron.as_deref(), Some("0 * * * *"));
+            }
+            other => panic!("expected Schedule, got {:?}", other),
+        }
+
+        assert_eq!(serde_json::to_string(&source).unwrap(), json);
+    }
+
+    #[test]
+    fn schedule_source_round_trips_without_cron() {
+        let json = r#"{"type":"schedule","time":1700000000000}"#;
+
+        let source: TaskSource = serde_json::from_str(json).unwrap();
+
+        match &source {
+            TaskSource::Schedule { cron, .. } => assert!(cron.is_none()),
+            other => panic!("expected Schedule, got {:?}", other),
+        }
+
+        assert_eq!(serde_json::to_string(&source).unwrap(), json);
     }
 }

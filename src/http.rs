@@ -125,25 +125,25 @@ impl RequestBody {
 
     /// Collect all bytes from the body, consuming it.
     /// Works for both Bytes and Stream variants.
-    pub async fn collect(self) -> Option<Bytes> {
+    ///
+    /// A failed chunk ends the collection, or else a truncated body would be
+    /// indistinguishable from a complete one. `Ok(None)` means no body.
+    pub async fn collect(self) -> Result<Option<Bytes>, String> {
         match self {
-            RequestBody::None => None,
-            RequestBody::Bytes(b) => Some(b),
+            RequestBody::None => Ok(None),
+            RequestBody::Bytes(b) => Ok(Some(b)),
             RequestBody::Stream(mut rx) => {
                 let mut chunks = Vec::new();
 
                 while let Some(result) = rx.recv().await {
-                    if let Ok(bytes) = result {
-                        chunks.push(bytes);
-                    }
+                    chunks.push(result?);
                 }
 
                 if chunks.is_empty() {
-                    None
-                } else {
-                    let total: Vec<u8> = chunks.iter().flat_map(|b| b.to_vec()).collect();
-                    Some(Bytes::from(total))
+                    return Ok(None);
                 }
+
+                Ok(Some(Bytes::from(chunks.concat())))
             }
         }
     }
@@ -191,25 +191,25 @@ impl ResponseBody {
 
     /// Collect all bytes from the body, consuming it.
     /// Works for both Bytes and Stream variants.
-    pub async fn collect(self) -> Option<Bytes> {
+    ///
+    /// A failed chunk ends the collection, or else a truncated body would be
+    /// indistinguishable from a complete one. `Ok(None)` means no body.
+    pub async fn collect(self) -> Result<Option<Bytes>, String> {
         match self {
-            ResponseBody::None => None,
-            ResponseBody::Bytes(b) => Some(b),
+            ResponseBody::None => Ok(None),
+            ResponseBody::Bytes(b) => Ok(Some(b)),
             ResponseBody::Stream(mut rx) => {
                 let mut chunks = Vec::new();
 
                 while let Some(result) = rx.recv().await {
-                    if let Ok(bytes) = result {
-                        chunks.push(bytes);
-                    }
+                    chunks.push(result?);
                 }
 
                 if chunks.is_empty() {
-                    None
-                } else {
-                    let total: Vec<u8> = chunks.iter().flat_map(|b| b.to_vec()).collect();
-                    Some(Bytes::from(total))
+                    return Ok(None);
                 }
+
+                Ok(Some(Bytes::from(chunks.concat())))
             }
         }
     }
@@ -506,5 +506,52 @@ impl HttpResponse {
                 ))))
                 .unwrap()
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CHUNK_SIZE: usize = 64 * 1024;
+
+    /// A stream that fails between two full chunks
+    async fn interrupted_stream() -> mpsc::Receiver<Result<Bytes, String>> {
+        let (tx, rx) = mpsc::channel(3);
+        let chunk = Bytes::from(vec![b'x'; CHUNK_SIZE]);
+
+        tx.send(Ok(chunk.clone())).await.unwrap();
+        tx.send(Err("connection reset".to_string())).await.unwrap();
+        tx.send(Ok(chunk)).await.unwrap();
+
+        rx
+    }
+
+    #[tokio::test]
+    async fn request_body_collect_fails_on_a_broken_stream() {
+        let body = RequestBody::Stream(interrupted_stream().await);
+
+        assert_eq!(body.collect().await.unwrap_err(), "connection reset");
+    }
+
+    #[tokio::test]
+    async fn response_body_collect_fails_on_a_broken_stream() {
+        let body = ResponseBody::Stream(interrupted_stream().await);
+
+        assert_eq!(body.collect().await.unwrap_err(), "connection reset");
+    }
+
+    #[tokio::test]
+    async fn request_body_collect_joins_every_chunk() {
+        let (tx, rx) = mpsc::channel(2);
+        let chunk = Bytes::from(vec![b'x'; CHUNK_SIZE]);
+
+        tx.send(Ok(chunk.clone())).await.unwrap();
+        tx.send(Ok(chunk)).await.unwrap();
+        drop(tx);
+
+        let collected = RequestBody::Stream(rx).collect().await.unwrap();
+
+        assert_eq!(collected.unwrap().len(), 2 * CHUNK_SIZE);
     }
 }

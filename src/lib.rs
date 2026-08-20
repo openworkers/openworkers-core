@@ -24,8 +24,9 @@ pub use http::{HyperBody, StreamBody};
 pub use limits::{BindingLimit, RuntimeLimits};
 pub use log::{LogEvent, LogLevel};
 pub use ops::{
-    DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, KvOp, KvResult, OpFuture, Operation,
-    OperationResult, OperationsHandle, OperationsHandler, SqlParam, SqlPrimitive, StorageOp,
+    DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, ImageFormat, ImageOutput,
+    ImageTransform, ImagesOp, ImagesResult, KvOp, KvResult, OpFuture, Operation, OperationResult,
+    OperationsHandle, OperationsHandler, ResizeFit, SqlParam, SqlPrimitive, StorageOp,
     StorageResult,
 };
 pub use script::{BindingInfo, BindingType, Script, WorkerCode};

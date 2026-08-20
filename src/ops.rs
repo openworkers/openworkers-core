@@ -308,10 +308,20 @@ pub enum DatabaseOp {
 }
 
 /// Result from a database operation
+///
+/// A handler returns either shape: `Rows` is the JSON path, `Table` is the
+/// typed path, which lets [`SqlPrimitive::Bytes`] reach the runtime without a
+/// JSON re-parse. Core never converts one into the other; each runtime decides
+/// which shapes it accepts.
 #[derive(Debug)]
 pub enum DatabaseResult {
     /// Rows as JSON array
     Rows(String),
+    /// Typed rows: column names plus one value per column, per row
+    Table {
+        columns: Vec<String>,
+        rows: Vec<Vec<SqlPrimitive>>,
+    },
     /// Error message
     Error(String),
 }

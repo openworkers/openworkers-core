@@ -1,6 +1,6 @@
 //! Operations for runner-controlled operations
 //!
-//! Enum-based approach for extensibility. All runtime→runner communication
+//! Enum-based approach for extensibility. All runtime to runner communication
 //! goes through OperationsHandler.
 //!
 //! This allows the runner to:
@@ -13,9 +13,15 @@
 //! ## Default behavior
 //!
 //! All handler methods have sensible defaults (stubs):
-//! - `handle_fetch` → returns error "Fetch not available"
-//! - `handle_binding_fetch` → returns error "Binding not configured"
-//! - `handle_log` → prints to stderr
+//! - `handle_fetch` returns "Fetch not available"
+//! - `handle_binding_fetch` returns "Binding '<name>' not configured"
+//! - `handle_binding_storage` returns "Storage binding '<name>' not implemented"
+//! - `handle_binding_kv` returns "KV binding '<name>' not implemented"
+//! - `handle_binding_database` returns "Database binding '<name>' not implemented"
+//! - `handle_binding_images` returns "Images binding '<name>' not implemented"
+//! - `handle_binding_worker` returns "Worker binding '<name>' not implemented"
+//! - `handle_websocket_connect` returns "WebSocket not available"
+//! - `handle_log` prints to stderr
 //!
 //! Runners only need to override the methods they want to implement.
 

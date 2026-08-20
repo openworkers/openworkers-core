@@ -43,6 +43,7 @@ pub enum WebSocketIncoming {
 /// Returned by [`crate::OperationsHandler::handle_websocket_connect`].
 /// The runner owns the actual TCP/TLS connection; this struct provides
 /// channels for bidirectional message passing.
+#[derive(Debug)]
 pub struct WebSocketConnection {
     /// Send messages to the WebSocket server (JS -> WS)
     pub send_tx: mpsc::UnboundedSender<WebSocketOutgoing>,

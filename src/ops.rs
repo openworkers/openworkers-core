@@ -547,6 +547,7 @@ pub enum Operation {
 }
 
 /// Results for operations
+#[derive(Debug)]
 pub enum OperationResult {
     /// HTTP response (used by Fetch and BindingFetch)
     Http(Result<HttpResponse, String>),
@@ -975,7 +976,7 @@ mod tests {
             OperationResult::Images(ImagesResult::Error(err)) => {
                 assert_eq!(err, "Images binding 'IMAGES' not implemented");
             }
-            _ => panic!("expected an Images error"),
+            other => panic!("expected an Images error, got {:?}", other),
         }
     }
 

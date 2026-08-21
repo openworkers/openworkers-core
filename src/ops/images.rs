@@ -1,6 +1,6 @@
 //! Descriptor types for the images binding
 
-/// How a resized image fits its target box (CSS `object-fit` semantics)
+/// How a resized image fits its target box (Cloudflare `fit` semantics)
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ResizeFit {
@@ -8,10 +8,9 @@ pub enum ResizeFit {
     Contain,
     /// Scale to fill the box, keeping the aspect ratio, cropping the overflow
     Cover,
-    /// Shrink and crop to the box exactly, centered until gravity is added
+    /// Shrink and crop to the box exactly, centered
     Crop,
-    /// Scale to fit inside the box, padding the rest, transparent until
-    /// background is added
+    /// Scale to fit inside the box, padding the rest with transparency
     Pad,
     /// Like Contain, but never scale up
     ScaleDown,
@@ -25,13 +24,15 @@ pub enum ResizeFit {
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ImageTransform {
-    /// Resize to the given box (a missing side is derived from the other)
+    /// Resize to the given box (a missing side is derived from the other,
+    /// a missing fit means Cloudflare's default, scale-down)
     Resize {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         width: Option<u32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         height: Option<u32>,
-        fit: ResizeFit,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fit: Option<ResizeFit>,
     },
     /// Trim pixels off each edge, the only crop a guest can express: it never
     /// learns the image dimensions, so an absolute rectangle is out of reach
@@ -149,8 +150,22 @@ mod tests {
             ImageTransform::Resize { width, height, fit } => {
                 assert_eq!(*width, Some(800));
                 assert!(height.is_none());
-                assert!(matches!(fit, ResizeFit::Cover));
+                assert!(matches!(fit, Some(ResizeFit::Cover)));
             }
+            other => panic!("expected Resize, got {:?}", other),
+        }
+
+        assert_eq!(serde_json::to_string(&transform).unwrap(), json);
+    }
+
+    #[test]
+    fn image_transform_accepts_a_resize_without_fit() {
+        let json = r#"{"resize":{"width":800}}"#;
+
+        let transform: ImageTransform = serde_json::from_str(json).unwrap();
+
+        match &transform {
+            ImageTransform::Resize { fit, .. } => assert!(fit.is_none()),
             other => panic!("expected Resize, got {:?}", other),
         }
 

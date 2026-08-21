@@ -1,4 +1,4 @@
-//! Operations for runner-controlled operations
+//! Operations a runtime delegates to the runner
 //!
 //! Enum-based approach for extensibility. All runtime to runner communication
 //! goes through OperationsHandler.

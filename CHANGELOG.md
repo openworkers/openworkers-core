@@ -2,6 +2,22 @@
 
 Releases before 0.15.0 are only in the git log.
 
+## [Unreleased]
+
+### Added
+
+- D1 binding (SQLite in the runner): `BindingType::D1`, `BindingInfo::d1()`,
+  `Operation::BindingD1` dispatched to `OperationsHandler::handle_binding_d1`
+  (the default stub returns an `Unavailable` error), `D1Op` and `D1Result`.
+  A parameter is a `SqlPrimitive`, never an array. A statement result keeps
+  column names apart from row values, so duplicate names survive.
+  `docs/d1.md` maps the wire format to the Cloudflare D1 Worker API.
+
+### Changed
+
+- `BindingType` has a new variant: an exhaustive `match` on it needs a `D1`
+  arm.
+
 ## [0.15.0] - 2026-08-20
 
 ### Added

@@ -103,6 +103,8 @@ pub enum BindingType {
     Kv,
     /// Database (PostgreSQL via postgate)
     Database,
+    /// D1 database (SQLite in the runner)
+    D1,
     /// Image transformation
     Images,
     /// Worker-to-worker binding
@@ -140,6 +142,10 @@ impl BindingInfo {
 
     pub fn database(name: impl Into<String>) -> Self {
         Self::new(name, BindingType::Database)
+    }
+
+    pub fn d1(name: impl Into<String>) -> Self {
+        Self::new(name, BindingType::D1)
     }
 
     pub fn images(name: impl Into<String>) -> Self {

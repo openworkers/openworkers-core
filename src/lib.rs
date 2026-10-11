@@ -24,6 +24,7 @@ pub use http::{HyperBody, StreamBody};
 pub use limits::{BindingLimit, RuntimeLimits};
 pub use log::{LogEvent, LogLevel};
 pub use ops::{
+    D1Error, D1ErrorKind, D1Meta, D1Op, D1Result, D1Rows, D1Statement, D1StatementResult,
     DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, ImageFormat, ImageOutput,
     ImageTransform, ImagesOp, ImagesResult, KvOp, KvResult, OpFuture, Operation, OperationResult,
     OperationsHandle, OperationsHandler, ResizeFit, SqlParam, SqlPrimitive, StorageOp,

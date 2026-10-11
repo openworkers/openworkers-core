@@ -18,6 +18,7 @@
 //! - `handle_binding_storage` returns "Storage binding '<name>' not implemented"
 //! - `handle_binding_kv` returns "KV binding '<name>' not implemented"
 //! - `handle_binding_database` returns "Database binding '<name>' not implemented"
+//! - `handle_binding_d1` returns "D1 binding '<name>' not implemented"
 //! - `handle_binding_images` returns "Images binding '<name>' not implemented"
 //! - `handle_binding_worker` returns "Worker binding '<name>' not implemented"
 //! - `handle_websocket_connect` returns "WebSocket not available"
@@ -25,9 +26,18 @@
 //!
 //! Runners only need to override the methods they want to implement.
 
+mod d1;
 mod images;
 mod sql;
 
+pub use d1::D1Error;
+pub use d1::D1ErrorKind;
+pub use d1::D1Meta;
+pub use d1::D1Op;
+pub use d1::D1Result;
+pub use d1::D1Rows;
+pub use d1::D1Statement;
+pub use d1::D1StatementResult;
 pub use images::ImageFormat;
 pub use images::ImageOutput;
 pub use images::ImageTransform;
@@ -151,6 +161,14 @@ pub enum Operation {
         op: DatabaseOp,
     },
 
+    /// D1 operation (SQLite)
+    BindingD1 {
+        /// Binding name (e.g., "DB")
+        binding: String,
+        /// The operation to perform
+        op: D1Op,
+    },
+
     /// Image operation (transform)
     BindingImages {
         /// Binding name (e.g., "IMAGES")
@@ -193,6 +211,9 @@ pub enum OperationResult {
 
     /// Database operation result
     Database(DatabaseResult),
+
+    /// D1 operation result
+    D1(D1Result),
 
     /// Image operation result
     Images(ImagesResult),
@@ -283,6 +304,21 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { DatabaseResult::Error(err) })
     }
 
+    /// Handle a D1 operation
+    ///
+    /// Default: returns an `Unavailable` error
+    fn handle_binding_d1(&self, binding: &str, _op: D1Op) -> OpFuture<'_, D1Result> {
+        let message = format!("D1 binding '{}' not implemented", binding);
+
+        Box::pin(async move {
+            D1Result::Error(D1Error {
+                kind: D1ErrorKind::Unavailable,
+                message,
+                statement: None,
+            })
+        })
+    }
+
     /// Handle an image operation (transform)
     ///
     /// Default: returns error "not implemented"
@@ -342,6 +378,9 @@ pub trait OperationsHandler: Send + Sync {
                 }
                 Operation::BindingDatabase { binding, op } => {
                     OperationResult::Database(self.handle_binding_database(&binding, op).await)
+                }
+                Operation::BindingD1 { binding, op } => {
+                    OperationResult::D1(self.handle_binding_d1(&binding, op).await)
                 }
                 Operation::BindingImages { binding, op } => {
                     OperationResult::Images(self.handle_binding_images(&binding, op).await)
@@ -413,6 +452,24 @@ mod tests {
                 assert_eq!(err, "Images binding 'IMAGES' not implemented");
             }
             other => panic!("expected an Images error, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn d1_binding_stub_names_the_binding() {
+        let op = Operation::BindingD1 {
+            binding: "DB".to_string(),
+            op: D1Op::Exec {
+                sql: "SELECT 1".to_string(),
+            },
+        };
+
+        match DefaultOps.handle(op).await {
+            OperationResult::D1(D1Result::Error(err)) => {
+                assert_eq!(err.kind, D1ErrorKind::Unavailable);
+                assert_eq!(err.message, "D1 binding 'DB' not implemented");
+            }
+            other => panic!("expected a D1 error, got {:?}", other),
         }
     }
 }

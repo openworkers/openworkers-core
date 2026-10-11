@@ -52,7 +52,7 @@ pub struct D1Meta {
     pub changes: u64,
     /// Rowid of the last successful INSERT on this connection
     pub last_row_id: i64,
-    /// True when the statement wrote to the database
+    /// True when the statement is not read-only (`sqlite3_stmt_readonly`)
     pub changed_db: bool,
     /// Database size in bytes after the statement
     pub size_after: u64,

@@ -113,6 +113,16 @@ impl<'de> de::Visitor<'de> for SqlPrimitiveVisitor {
         Ok(SqlPrimitive::String(value))
     }
 
+    /// Native byte strings: serde_v8 hands an `ArrayBuffer` or a typed array
+    /// to `deserialize_any` this way
+    fn visit_bytes<E: de::Error>(self, value: &[u8]) -> Result<Self::Value, E> {
+        Ok(SqlPrimitive::Bytes(value.to_vec()))
+    }
+
+    fn visit_byte_buf<E: de::Error>(self, value: Vec<u8>) -> Result<Self::Value, E> {
+        Ok(SqlPrimitive::Bytes(value))
+    }
+
     fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
         let key: String = match map.next_key()? {
             Some(key) => key,
@@ -228,6 +238,18 @@ impl<'de> de::Visitor<'de> for SqlParamVisitor {
     fn visit_string<E: de::Error>(self, value: String) -> Result<Self::Value, E> {
         SqlPrimitiveVisitor
             .visit_string(value)
+            .map(SqlParam::Primitive)
+    }
+
+    fn visit_bytes<E: de::Error>(self, value: &[u8]) -> Result<Self::Value, E> {
+        SqlPrimitiveVisitor
+            .visit_bytes(value)
+            .map(SqlParam::Primitive)
+    }
+
+    fn visit_byte_buf<E: de::Error>(self, value: Vec<u8>) -> Result<Self::Value, E> {
+        SqlPrimitiveVisitor
+            .visit_byte_buf(value)
             .map(SqlParam::Primitive)
     }
 
@@ -418,6 +440,44 @@ mod tests {
         let json = r#"[null,true,42,1.5,"widget",[1,2],{"$bytes":"AQI="}]"#;
 
         assert_eq!(round_trip::<Vec<SqlParam>>(json), json);
+    }
+
+    /// Deserializes through `visit_byte_buf`, as serde_v8 does for a typed array
+    struct ByteBuf(Vec<u8>);
+
+    impl<'de> serde::Deserializer<'de> for ByteBuf {
+        type Error = de::value::Error;
+
+        fn deserialize_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+            visitor.visit_byte_buf(self.0)
+        }
+
+        serde::forward_to_deserialize_any! {
+            bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+            bytes byte_buf option unit unit_struct newtype_struct seq tuple
+            tuple_struct map struct enum identifier ignored_any
+        }
+    }
+
+    #[test]
+    fn sql_primitive_accepts_native_bytes() {
+        let value =
+            <SqlPrimitive as serde::Deserialize>::deserialize(ByteBuf(vec![0, 255])).unwrap();
+
+        match value {
+            SqlPrimitive::Bytes(bytes) => assert_eq!(bytes, vec![0, 255]),
+            other => panic!("expected Bytes, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn sql_param_accepts_native_bytes() {
+        let value = <SqlParam as serde::Deserialize>::deserialize(ByteBuf(vec![1])).unwrap();
+
+        match value {
+            SqlParam::Primitive(SqlPrimitive::Bytes(bytes)) => assert_eq!(bytes, vec![1]),
+            other => panic!("expected Bytes primitive, got {:?}", other),
+        }
     }
 
     #[test]

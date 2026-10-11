@@ -82,6 +82,8 @@ pub enum D1ErrorKind {
     Sql,
     /// A parameter or value has a type D1 does not accept; nothing ran
     Type,
+    /// The number of values does not match the parameters; nothing ran
+    Range,
     /// The deadline stopped the statement
     Interrupted,
     /// The runner refused the call before running it (full queue, size or

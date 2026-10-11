@@ -12,6 +12,9 @@ Releases before 0.15.0 are only in the git log.
   A parameter is a `SqlPrimitive`, never an array. A statement result keeps
   column names apart from row values, so duplicate names survive.
   `docs/d1.md` maps the wire format to the Cloudflare D1 Worker API.
+- `SqlPrimitive` and `SqlParam` deserialize native byte strings
+  (`visit_bytes`, `visit_byte_buf`) as `Bytes`, so serde_v8 can pass an
+  `ArrayBuffer` or a typed array without base64.
 
 ### Changed
 

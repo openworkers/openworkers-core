@@ -2,6 +2,21 @@
 
 Releases before 0.15.0 are only in the git log.
 
+## [0.17.0] - 2026-10-12
+
+### Added
+
+- `FetchInit::upgradable` gives a fetch that the runner can upgrade to a
+  WebSocket. It returns a sender: the runner sends the socket of the client
+  on it after the 101, or drops it when the upgrade fails. The receiver is
+  the new type `WebSocketUpgrade`.
+
+### Changed
+
+- `FetchInit` has a new public field, `upgrade: Option<WebSocketUpgrade>`.
+  Code that builds a `FetchInit` with a struct literal must set it.
+  `FetchInit::new` sets `None`.
+
 ## [0.16.1] - 2026-10-12
 
 ### Fixed

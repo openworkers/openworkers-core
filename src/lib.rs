@@ -26,9 +26,9 @@ pub use log::{LogEvent, LogLevel};
 pub use ops::{
     D1Error, D1ErrorKind, D1Meta, D1Op, D1Result, D1Rows, D1Statement, D1StatementResult,
     DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, ImageFormat, ImageOutput,
-    ImageTransform, ImagesOp, ImagesResult, KvOp, KvResult, ObjectIdSource, OpFuture, Operation,
-    OperationResult, OperationsHandle, OperationsHandler, ResizeFit, SqlParam, SqlPrimitive,
-    StorageOp, StorageResult,
+    ImageTransform, ImagesOp, ImagesResult, KvOp, KvResult, ObjectIdSource, ObjectStorageOp,
+    ObjectStorageResult, OpFuture, Operation, OperationResult, OperationsHandle, OperationsHandler,
+    ResizeFit, SqlParam, SqlPrimitive, StorageOp, StorageResult,
 };
 pub use script::{BindingInfo, BindingType, Script, WorkerCode};
 pub use task::{Event, EventType, FetchInit, TaskInit, TaskResult, TaskSource};

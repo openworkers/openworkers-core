@@ -42,6 +42,8 @@ pub use d1::D1Rows;
 pub use d1::D1Statement;
 pub use d1::D1StatementResult;
 pub use durable_object::ObjectIdSource;
+pub use durable_object::ObjectStorageOp;
+pub use durable_object::ObjectStorageResult;
 pub use images::ImageFormat;
 pub use images::ImageOutput;
 pub use images::ImageTransform;
@@ -198,6 +200,9 @@ pub enum Operation {
         request: HttpRequest,
     },
 
+    /// Storage of the Durable Object the runtime serves
+    DurableObjectStorage(ObjectStorageOp),
+
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
 
@@ -230,6 +235,9 @@ pub enum OperationResult {
 
     /// Image operation result
     Images(ImagesResult),
+
+    /// Durable Object storage result
+    ObjectStorage(ObjectStorageResult),
 
     /// Acknowledgement for fire-and-forget operations (Log, etc.)
     Ack,
@@ -376,6 +384,19 @@ pub trait OperationsHandler: Send + Sync {
         ))
     }
 
+    /// Run an operation on the storage of the Durable Object these
+    /// operations serve
+    ///
+    /// Default: returns error "not implemented"
+    fn handle_durable_object_storage(
+        &self,
+        _op: ObjectStorageOp,
+    ) -> OpFuture<'_, ObjectStorageResult> {
+        Box::pin(async {
+            ObjectStorageResult::Error("Durable Object storage not implemented".into())
+        })
+    }
+
     /// Handle an outgoing WebSocket connection
     ///
     /// Default: returns error "WebSocket not available"
@@ -438,6 +459,9 @@ pub trait OperationsHandler: Send + Sync {
                     self.handle_binding_durable_object(&binding, &id, request)
                         .await,
                 ),
+                Operation::DurableObjectStorage(op) => {
+                    OperationResult::ObjectStorage(self.handle_durable_object_storage(op).await)
+                }
                 Operation::WebSocketConnect { url, headers } => {
                     OperationResult::WebSocket(self.handle_websocket_connect(&url, headers).await)
                 }

@@ -33,5 +33,7 @@ pub use ops::{
 pub use script::{BindingInfo, BindingType, Script, WorkerCode};
 pub use task::{Event, EventType, FetchInit, TaskInit, TaskResult, TaskSource};
 pub use termination::TerminationReason;
-pub use websocket::{WebSocketConnection, WebSocketId, WebSocketIncoming, WebSocketOutgoing};
+pub use websocket::{
+    WebSocketConnection, WebSocketId, WebSocketIncoming, WebSocketOutgoing, WebSocketUpgrade,
+};
 pub use worker::Worker;

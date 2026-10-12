@@ -1,4 +1,4 @@
-//! WebSocket types for outgoing (client) WebSocket connections.
+//! WebSocket types for outgoing connections and for inbound upgrades.
 //!
 //! The WebSocket connection lives in the runner (tokio task).
 //! The runtime only manipulates an opaque WebSocketId and communicates
@@ -7,7 +7,7 @@
 //! This design allows future decoupling: a Durable Object could
 //! inherit a WebSocketId without moving the underlying TCP connection.
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 /// Unique identifier for a WebSocket connection.
 ///
@@ -40,13 +40,19 @@ pub enum WebSocketIncoming {
 
 /// Established WebSocket connection handle.
 ///
-/// Returned by [`crate::OperationsHandler::handle_websocket_connect`].
+/// Returned by [`crate::OperationsHandler::handle_websocket_connect`], or sent
+/// on the upgrade of an inbound request.
 /// The runner owns the actual TCP/TLS connection; this struct provides
 /// channels for bidirectional message passing.
 #[derive(Debug)]
 pub struct WebSocketConnection {
-    /// Send messages to the WebSocket server (JS -> WS)
+    /// Send messages to the peer (JS -> WS)
     pub send_tx: mpsc::UnboundedSender<WebSocketOutgoing>,
-    /// Receive messages from the WebSocket server (WS -> JS)
+    /// Receive messages from the peer (WS -> JS)
     pub recv_rx: mpsc::UnboundedReceiver<WebSocketIncoming>,
 }
+
+/// The socket of an upgraded request. The runner sends it once the 101 is
+/// written, and drops the sender when it does not upgrade, which closes the
+/// socket the worker gave in its response.
+pub type WebSocketUpgrade = oneshot::Receiver<WebSocketConnection>;

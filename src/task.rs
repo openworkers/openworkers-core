@@ -1,4 +1,4 @@
-use crate::{HttpRequest, HttpResponse, ResponseSender};
+use crate::{HttpRequest, HttpResponse, ResponseSender, WebSocketConnection, WebSocketUpgrade};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokio::sync::oneshot;
@@ -12,11 +12,34 @@ use tokio::sync::oneshot;
 pub struct FetchInit {
     pub req: HttpRequest,
     pub res_tx: ResponseSender,
+    /// Set when the runner can upgrade this request to a WebSocket
+    pub upgrade: Option<WebSocketUpgrade>,
 }
 
 impl FetchInit {
     pub fn new(req: HttpRequest, res_tx: ResponseSender) -> Self {
-        Self { req, res_tx }
+        Self {
+            req,
+            res_tx,
+            upgrade: None,
+        }
+    }
+
+    /// A fetch the runner can upgrade. Send the accepted socket on the
+    /// returned sender once the 101 is written.
+    pub fn upgradable(
+        req: HttpRequest,
+        res_tx: ResponseSender,
+    ) -> (Self, oneshot::Sender<WebSocketConnection>) {
+        let (socket_tx, socket_rx) = oneshot::channel();
+
+        let init = Self {
+            req,
+            res_tx,
+            upgrade: Some(socket_rx),
+        };
+
+        (init, socket_tx)
     }
 }
 

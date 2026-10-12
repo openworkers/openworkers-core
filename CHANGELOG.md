@@ -2,6 +2,16 @@
 
 Releases before 0.15.0 are only in the git log.
 
+## [0.16.1] - 2026-10-12
+
+### Fixed
+
+- The request conversions (`from_hyper_parts`, `from_hyper_parts_streaming`,
+  `from_actix`) keep every value of a repeated header. They used to keep only
+  the last one, so a browser that sends each cookie in its own header over
+  HTTP/2 reached the worker with a single cookie. Repeated values are joined
+  as the Fetch standard does: `"; "` for `cookie`, `", "` otherwise.
+
 ## [0.16.0] - 2026-10-12
 
 ### Added

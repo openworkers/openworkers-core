@@ -21,12 +21,15 @@
 //! - `handle_binding_d1` returns "D1 binding '<name>' not implemented"
 //! - `handle_binding_images` returns "Images binding '<name>' not implemented"
 //! - `handle_binding_worker` returns "Worker binding '<name>' not implemented"
+//! - `handle_binding_durable_object` and `durable_object_id` return
+//!   "Durable Object binding '<name>' not implemented"
 //! - `handle_websocket_connect` returns "WebSocket not available"
 //! - `handle_log` prints to stderr
 //!
 //! Runners only need to override the methods they want to implement.
 
 mod d1;
+mod durable_object;
 mod images;
 mod sql;
 
@@ -38,6 +41,7 @@ pub use d1::D1Result;
 pub use d1::D1Rows;
 pub use d1::D1Statement;
 pub use d1::D1StatementResult;
+pub use durable_object::ObjectIdSource;
 pub use images::ImageFormat;
 pub use images::ImageOutput;
 pub use images::ImageTransform;
@@ -182,6 +186,15 @@ pub enum Operation {
         /// Binding name (e.g., "MY_WORKER")
         binding: String,
         /// The request to send to the target worker
+        request: HttpRequest,
+    },
+
+    /// A request to a Durable Object
+    BindingDurableObject {
+        /// Binding name (e.g., "COUNTER")
+        binding: String,
+        /// The id of the object, as durable_object_id made it
+        id: String,
         request: HttpRequest,
     },
 
@@ -339,6 +352,30 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { Err(err) })
     }
 
+    /// Send a request to a Durable Object of the namespace of `binding`
+    ///
+    /// Default: returns error "not implemented"
+    fn handle_binding_durable_object(
+        &self,
+        binding: &str,
+        _id: &str,
+        _request: HttpRequest,
+    ) -> OpFuture<'_, Result<HttpResponse, String>> {
+        let err = format!("Durable Object binding '{}' not implemented", binding);
+        Box::pin(async move { Err(err) })
+    }
+
+    /// Make the id of a Durable Object of the namespace of `binding`. The
+    /// guest calls this synchronously, so it must not block.
+    ///
+    /// Default: returns error "not implemented"
+    fn durable_object_id(&self, binding: &str, _source: ObjectIdSource) -> Result<String, String> {
+        Err(format!(
+            "Durable Object binding '{}' not implemented",
+            binding
+        ))
+    }
+
     /// Handle an outgoing WebSocket connection
     ///
     /// Default: returns error "WebSocket not available"
@@ -393,6 +430,14 @@ pub trait OperationsHandler: Send + Sync {
                     OperationResult::Ack
                 }
 
+                Operation::BindingDurableObject {
+                    binding,
+                    id,
+                    request,
+                } => OperationResult::Http(
+                    self.handle_binding_durable_object(&binding, &id, request)
+                        .await,
+                ),
                 Operation::WebSocketConnect { url, headers } => {
                     OperationResult::WebSocket(self.handle_websocket_connect(&url, headers).await)
                 }
@@ -432,6 +477,7 @@ mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{HttpMethod, RequestBody};
 
     #[tokio::test]
     async fn images_binding_stub_names_the_binding() {
@@ -453,6 +499,29 @@ mod tests {
             }
             other => panic!("expected an Images error, got {:?}", other),
         }
+    }
+
+    #[tokio::test]
+    async fn durable_object_binding_stubs_name_the_binding() {
+        let op = Operation::BindingDurableObject {
+            binding: "COUNTER".to_string(),
+            id: "00".to_string(),
+            request: HttpRequest {
+                method: HttpMethod::Get,
+                url: "http://object/".to_string(),
+                headers: HashMap::new(),
+                body: RequestBody::None,
+            },
+        };
+        let message = "Durable Object binding 'COUNTER' not implemented";
+
+        match DefaultOps.handle(op).await {
+            OperationResult::Http(Err(err)) => assert_eq!(err, message),
+            other => panic!("expected an Http error, got {:?}", other),
+        }
+
+        let id = DefaultOps.durable_object_id("COUNTER", ObjectIdSource::Unique);
+        assert_eq!(id, Err(message.to_string()));
     }
 
     #[tokio::test]

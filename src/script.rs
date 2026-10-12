@@ -109,6 +109,8 @@ pub enum BindingType {
     Images,
     /// Worker-to-worker binding
     Worker,
+    /// Durable Object namespace
+    DurableObject,
 }
 
 /// Binding info passed to the runtime (name + type, no credentials)
@@ -154,6 +156,10 @@ impl BindingInfo {
 
     pub fn worker(name: impl Into<String>) -> Self {
         Self::new(name, BindingType::Worker)
+    }
+
+    pub fn durable_object(name: impl Into<String>) -> Self {
+        Self::new(name, BindingType::DurableObject)
     }
 }
 

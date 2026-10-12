@@ -233,6 +233,21 @@ pub struct HttpResponseMeta {
     pub headers: Vec<(String, String)>,
 }
 
+/// A header the client sent several times keeps every value, joined as the Fetch standard does: HTTP/2 lets a
+/// browser send each cookie in its own header, and they must reach the worker as one cookie list.
+#[cfg(any(feature = "actix", feature = "hyper"))]
+fn append_header(headers: &mut HashMap<String, String>, name: &str, value: &str) {
+    match headers.get_mut(name) {
+        Some(existing) => {
+            existing.push_str(if name == "cookie" { "; " } else { ", " });
+            existing.push_str(value);
+        }
+        None => {
+            headers.insert(name.to_string(), value.to_string());
+        }
+    }
+}
+
 // Actix-web conversions (only available with actix feature)
 #[cfg(feature = "actix")]
 impl HttpRequest {
@@ -250,7 +265,7 @@ impl HttpRequest {
 
         for (key, value) in req.headers() {
             if let Ok(val_str) = value.to_str() {
-                headers.insert(key.to_string(), val_str.to_string());
+                append_header(&mut headers, key.as_str(), val_str);
             }
         }
 
@@ -324,7 +339,7 @@ impl HttpRequest {
 
         for (key, value) in headers {
             if let Ok(val_str) = value.to_str() {
-                header_map.insert(key.to_string(), val_str.to_string());
+                append_header(&mut header_map, key.as_str(), val_str);
             }
         }
 
@@ -364,7 +379,7 @@ impl HttpRequest {
 
         for (key, value) in headers {
             if let Ok(val_str) = value.to_str() {
-                header_map.insert(key.to_string(), val_str.to_string());
+                append_header(&mut header_map, key.as_str(), val_str);
             }
         }
 
@@ -553,5 +568,39 @@ mod tests {
         let collected = RequestBody::Stream(rx).collect().await.unwrap();
 
         assert_eq!(collected.unwrap().len(), 2 * CHUNK_SIZE);
+    }
+
+    /// HTTP/2 lets a browser send each cookie in its own header: the worker must still see all of them
+    #[cfg(feature = "hyper")]
+    #[test]
+    fn from_hyper_parts_keeps_every_value_of_a_repeated_header() {
+        let mut headers = hyper::HeaderMap::new();
+        headers.append("cookie", "state=abc".parse().unwrap());
+        headers.append("cookie", "_ga=GA1.1".parse().unwrap());
+        headers.append("accept", "text/html".parse().unwrap());
+        headers.append("accept", "application/json".parse().unwrap());
+        headers.append("host", "example.com".parse().unwrap());
+
+        let uri: hyper::Uri = "/".parse().unwrap();
+        let request = HttpRequest::from_hyper_parts(
+            &hyper::Method::GET,
+            &uri,
+            &headers,
+            Bytes::new(),
+            "https",
+        );
+        let (streaming, _tx) = HttpRequest::from_hyper_parts_streaming(
+            &hyper::Method::GET,
+            &uri,
+            &headers,
+            "https",
+            1,
+        );
+
+        for request in [request, streaming] {
+            assert_eq!(request.headers["cookie"], "state=abc; _ga=GA1.1");
+            assert_eq!(request.headers["accept"], "text/html, application/json");
+            assert_eq!(request.headers["host"], "example.com");
+        }
     }
 }

@@ -2,24 +2,31 @@
 
 Releases before 0.15.0 are only in the git log.
 
-## [Unreleased]
+## [0.16.0] - 2026-10-12
 
 ### Added
 
-- D1 binding (SQLite in the runner): `BindingType::D1`, `BindingInfo::d1()`,
-  `Operation::BindingD1` dispatched to `OperationsHandler::handle_binding_d1`
-  (the default stub returns an `Unavailable` error), `D1Op` and `D1Result`.
-  A parameter is a `SqlPrimitive`, never an array. A statement result keeps
-  column names apart from row values, so duplicate names survive.
-  `docs/d1.md` maps the wire format to the Cloudflare D1 Worker API.
-- `SqlPrimitive` and `SqlParam` deserialize native byte strings
-  (`visit_bytes`, `visit_byte_buf`) as `Bytes`, so serde_v8 can pass an
+- D1 binding, a SQLite database in the runner: `BindingType::D1`,
+  `BindingInfo::d1()`, `D1Op` and `D1Result`. `Operation::BindingD1` goes to
+  `OperationsHandler::handle_binding_d1`. The default stub returns an
+  `Unavailable` error. A parameter is a `SqlPrimitive`, never an array. A
+  statement result keeps the column names apart from the row values, so
+  duplicate names stay. `docs/d1.md` maps the wire format to the Cloudflare
+  D1 Worker API.
+- `SqlPrimitive` and `SqlParam` deserialize a native byte string
+  (`visit_bytes`, `visit_byte_buf`) as `Bytes`. Thus serde_v8 can send an
   `ArrayBuffer` or a typed array without base64.
 
 ### Changed
 
-- `BindingType` has a new variant: an exhaustive `match` on it needs a `D1`
-  arm.
+- `BindingType` has a new variant, `D1`. Add a `D1` arm to each exhaustive
+  `match` on `BindingType`.
+
+## [0.15.1] - 2026-09-13
+
+### Changed
+
+- Update base64 to 0.23.
 
 ## [0.15.0] - 2026-08-20
 

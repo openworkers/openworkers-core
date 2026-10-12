@@ -35,6 +35,10 @@ pub enum ObjectStorageOp {
         deletes: Vec<String>,
         delete_all: bool,
     },
+    /// The time of the alarm, in milliseconds since the Unix epoch
+    GetAlarm,
+    /// Sets the alarm to this time, or deletes it
+    SetAlarm(Option<i64>),
 }
 
 /// The result of an `ObjectStorageOp`.
@@ -48,5 +52,7 @@ pub enum ObjectStorageResult {
     Written {
         deleted: u64,
     },
+    /// For `GetAlarm` and `SetAlarm`: the alarm after the op
+    Alarm(Option<i64>),
     Error(String),
 }

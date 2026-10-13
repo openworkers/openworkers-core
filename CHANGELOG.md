@@ -2,6 +2,32 @@
 
 Releases before 0.15.0 are only in the git log.
 
+## [0.18.0] - 2026-10-13
+
+### Added
+
+- Durable Object binding: `BindingType::DurableObject` and
+  `BindingInfo::durable_object()`. `Operation::BindingDurableObject` goes to
+  `OperationsHandler::handle_binding_durable_object`, which answers an
+  `ObjectResponse`. `durable_object_id(binding, ObjectIdSource)` makes the
+  id of an object synchronously, so the runtime never holds the key of a
+  namespace.
+- Storage of the object a runtime serves: `ObjectStorageOp` (`Get`, `List`,
+  `Write`, `GetAlarm`, `SetAlarm`) and `ObjectStorageResult`.
+  `Operation::DurableObjectStorage` goes to `handle_durable_object_storage`.
+  Values are bytes that the runtime serializes.
+- WebSockets of the object, which the runner holds: `ObjectSocketOp`
+  (`Accept`, `Attach`, `Send`, `Attachment`), `Operation::DurableObjectSocket`
+  to `handle_durable_object_socket`, and `durable_object_sockets()` for the
+  hibernatable sockets a new instance finds. `OperationResult::Upgrade`
+  carries a 101 of an object with the sender for the socket of the client.
+
+### Changed
+
+- `Operation` and `OperationResult` have new variants; an exhaustive match
+  needs an arm for each.
+- A `WebSocketId` is unique in the process, not in one execution.
+
 ## [0.17.0] - 2026-10-12
 
 ### Added

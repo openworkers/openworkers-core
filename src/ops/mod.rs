@@ -42,6 +42,9 @@ pub use d1::D1Rows;
 pub use d1::D1Statement;
 pub use d1::D1StatementResult;
 pub use durable_object::ObjectIdSource;
+pub use durable_object::ObjectResponse;
+pub use durable_object::ObjectSocket;
+pub use durable_object::ObjectSocketOp;
 pub use durable_object::ObjectStorageOp;
 pub use durable_object::ObjectStorageResult;
 pub use images::ImageFormat;
@@ -203,6 +206,9 @@ pub enum Operation {
     /// Storage of the Durable Object the runtime serves
     DurableObjectStorage(ObjectStorageOp),
 
+    /// WebSockets of the Durable Object the runtime serves
+    DurableObjectSocket(ObjectSocketOp),
+
     /// Log message (fire-and-forget)
     Log { level: LogLevel, message: String },
 
@@ -244,6 +250,13 @@ pub enum OperationResult {
 
     /// WebSocket connection established (contains bidirectional channels)
     WebSocket(Result<WebSocketConnection, String>),
+
+    /// A response that hands over a socket: the socket of the client goes
+    /// on the sender once the caller upgrades (BindingDurableObject)
+    Upgrade(
+        HttpResponse,
+        tokio::sync::oneshot::Sender<WebSocketConnection>,
+    ),
 }
 
 /// Future type alias for async operation results
@@ -368,7 +381,7 @@ pub trait OperationsHandler: Send + Sync {
         binding: &str,
         _id: &str,
         _request: HttpRequest,
-    ) -> OpFuture<'_, Result<HttpResponse, String>> {
+    ) -> OpFuture<'_, Result<ObjectResponse, String>> {
         let err = format!("Durable Object binding '{}' not implemented", binding);
         Box::pin(async move { Err(err) })
     }
@@ -395,6 +408,20 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async {
             ObjectStorageResult::Error("Durable Object storage not implemented".into())
         })
+    }
+
+    /// Run an operation on the WebSockets of the Durable Object these
+    /// operations serve. It must not block.
+    ///
+    /// Default: drops the op, which closes a socket it carries
+    fn handle_durable_object_socket(&self, _op: ObjectSocketOp) {}
+
+    /// The hibernatable sockets of the Durable Object these operations
+    /// serve. The guest calls this synchronously, so it must not block.
+    ///
+    /// Default: none
+    fn durable_object_sockets(&self) -> Vec<ObjectSocket> {
+        Vec::new()
     }
 
     /// Handle an outgoing WebSocket connection
@@ -455,12 +482,23 @@ pub trait OperationsHandler: Send + Sync {
                     binding,
                     id,
                     request,
-                } => OperationResult::Http(
-                    self.handle_binding_durable_object(&binding, &id, request)
-                        .await,
-                ),
+                } => match self
+                    .handle_binding_durable_object(&binding, &id, request)
+                    .await
+                {
+                    Ok(ObjectResponse {
+                        response,
+                        socket: Some(socket),
+                    }) => OperationResult::Upgrade(response, socket),
+                    Ok(answer) => OperationResult::Http(Ok(answer.response)),
+                    Err(error) => OperationResult::Http(Err(error)),
+                },
                 Operation::DurableObjectStorage(op) => {
                     OperationResult::ObjectStorage(self.handle_durable_object_storage(op).await)
+                }
+                Operation::DurableObjectSocket(op) => {
+                    self.handle_durable_object_socket(op);
+                    OperationResult::Ack
                 }
                 Operation::WebSocketConnect { url, headers } => {
                     OperationResult::WebSocket(self.handle_websocket_connect(&url, headers).await)

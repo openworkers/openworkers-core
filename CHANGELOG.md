@@ -2,6 +2,16 @@
 
 Releases before 0.15.0 are only in the git log.
 
+## [0.18.1] - 2026-10-30
+
+### Added
+
+- Invoke binding, behind the `invoke` feature (off by default): a guest calls a
+  function of the host by name, with JSON arguments. `BindingType::Invoke` and
+  `BindingInfo::invoke()`. `Operation::BindingInvoke` goes to
+  `OperationsHandler::handle_binding_invoke`, which answers an `InvokeResult`
+  (`Value` or `Error`). Without the feature, the types are those of 0.18.0.
+
 ## [0.18.0] - 2026-10-13
 
 ### Added

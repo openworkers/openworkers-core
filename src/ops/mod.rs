@@ -21,6 +21,7 @@
 //! - `handle_binding_d1` returns "D1 binding '<name>' not implemented"
 //! - `handle_binding_images` returns "Images binding '<name>' not implemented"
 //! - `handle_binding_worker` returns "Worker binding '<name>' not implemented"
+//! - `handle_binding_invoke` (feature `invoke`) returns "Invoke binding '<name>' not implemented"
 //! - `handle_binding_durable_object` and `durable_object_id` return
 //!   "Durable Object binding '<name>' not implemented"
 //! - `handle_websocket_connect` returns "WebSocket not available"
@@ -31,6 +32,8 @@
 mod d1;
 mod durable_object;
 mod images;
+#[cfg(feature = "invoke")]
+mod invoke;
 mod sql;
 
 pub use d1::D1Error;
@@ -53,6 +56,8 @@ pub use images::ImageTransform;
 pub use images::ImagesOp;
 pub use images::ImagesResult;
 pub use images::ResizeFit;
+#[cfg(feature = "invoke")]
+pub use invoke::InvokeResult;
 pub use sql::DatabaseOp;
 pub use sql::DatabaseResult;
 pub use sql::SqlParam;
@@ -194,6 +199,17 @@ pub enum Operation {
         request: HttpRequest,
     },
 
+    /// A call to a function of the host, by name (feature `invoke`)
+    #[cfg(feature = "invoke")]
+    BindingInvoke {
+        /// Binding name (e.g., "RUST")
+        binding: String,
+        /// The function to call
+        name: String,
+        /// The arguments
+        args: serde_json::Value,
+    },
+
     /// A request to a Durable Object
     BindingDurableObject {
         /// Binding name (e.g., "COUNTER")
@@ -241,6 +257,10 @@ pub enum OperationResult {
 
     /// Image operation result
     Images(ImagesResult),
+
+    /// Result of a call to a function of the host
+    #[cfg(feature = "invoke")]
+    Invoke(InvokeResult),
 
     /// Durable Object storage result
     ObjectStorage(ObjectStorageResult),
@@ -373,6 +393,20 @@ pub trait OperationsHandler: Send + Sync {
         Box::pin(async move { Err(err) })
     }
 
+    /// Call the function of the host named `name`
+    ///
+    /// Default: returns error "not implemented"
+    #[cfg(feature = "invoke")]
+    fn handle_binding_invoke(
+        &self,
+        binding: &str,
+        _name: &str,
+        _args: serde_json::Value,
+    ) -> OpFuture<'_, InvokeResult> {
+        let err = format!("Invoke binding '{}' not implemented", binding);
+        Box::pin(async move { InvokeResult::Error(err) })
+    }
+
     /// Send a request to a Durable Object of the namespace of `binding`
     ///
     /// Default: returns error "not implemented"
@@ -472,6 +506,14 @@ pub trait OperationsHandler: Send + Sync {
                 }
                 Operation::BindingWorker { binding, request } => {
                     OperationResult::Http(self.handle_binding_worker(&binding, request).await)
+                }
+                #[cfg(feature = "invoke")]
+                Operation::BindingInvoke {
+                    binding,
+                    name,
+                    args,
+                } => {
+                    OperationResult::Invoke(self.handle_binding_invoke(&binding, &name, args).await)
                 }
                 Operation::Log { level, message } => {
                     self.handle_log(level, message);
@@ -584,6 +626,68 @@ mod tests {
 
         let id = DefaultOps.durable_object_id("COUNTER", ObjectIdSource::Unique);
         assert_eq!(id, Err(message.to_string()));
+    }
+
+    #[cfg(feature = "invoke")]
+    fn invoke(binding: &str, name: &str, args: serde_json::Value) -> Operation {
+        Operation::BindingInvoke {
+            binding: binding.to_string(),
+            name: name.to_string(),
+            args,
+        }
+    }
+
+    #[cfg(feature = "invoke")]
+    #[tokio::test]
+    async fn invoke_binding_stub_names_the_binding() {
+        match DefaultOps
+            .handle(invoke("RUST", "greet", serde_json::Value::Null))
+            .await
+        {
+            OperationResult::Invoke(InvokeResult::Error(err)) => {
+                assert_eq!(err, "Invoke binding 'RUST' not implemented");
+            }
+            other => panic!("expected an Invoke error, got {:?}", other),
+        }
+    }
+
+    #[cfg(feature = "invoke")]
+    #[tokio::test]
+    async fn invoke_reaches_the_handler_with_the_name_and_the_arguments() {
+        struct Echo;
+
+        impl OperationsHandler for Echo {
+            fn handle_binding_invoke(
+                &self,
+                binding: &str,
+                name: &str,
+                args: serde_json::Value,
+            ) -> OpFuture<'_, InvokeResult> {
+                let answer = serde_json::json!({ "binding": binding, "name": name, "args": args });
+
+                Box::pin(async move { InvokeResult::Value(answer) })
+            }
+        }
+
+        match Echo
+            .handle(invoke("RUST", "add", serde_json::json!([1, 2])))
+            .await
+        {
+            OperationResult::Invoke(InvokeResult::Value(value)) => assert_eq!(
+                value,
+                serde_json::json!({ "binding": "RUST", "name": "add", "args": [1, 2] })
+            ),
+            other => panic!("expected an Invoke value, got {:?}", other),
+        }
+    }
+
+    #[cfg(feature = "invoke")]
+    #[test]
+    fn invoke_binding_info_has_the_invoke_type() {
+        let binding = crate::BindingInfo::invoke("RUST");
+
+        assert_eq!(binding.name, "RUST");
+        assert_eq!(binding.binding_type, crate::BindingType::Invoke);
     }
 
     #[tokio::test]

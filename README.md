@@ -16,6 +16,7 @@ openworkers-core = "0.15"
 |---------|-------------|
 | `actix` | Actix-web request/response conversions |
 | `hyper` | Hyper request/response conversions |
+| `invoke` | `BindingType::Invoke`: a guest calls a function of the host by name |
 | `wasm`  | `WorkerCode::WebAssembly` |
 
 ## Worker
@@ -83,6 +84,7 @@ impl OperationsHandler for MyRunner {
 | `BindingDatabase` | `handle_binding_database` | `Database` |
 | `BindingImages` | `handle_binding_images` | `Images` |
 | `BindingWorker` | `handle_binding_worker` | `Http` |
+| `BindingInvoke` | `handle_binding_invoke` | `Invoke` (feature `invoke`) |
 | `WebSocketConnect` | `handle_websocket_connect` | `WebSocket` |
 | `Log` | `handle_log` | `Ack` |
 
@@ -102,6 +104,14 @@ is always an array, never bytes:
 A handler answers with `DatabaseResult::Rows(String)` (rows already
 serialized to JSON) or `DatabaseResult::Table { columns, rows }` (typed
 values, which binary columns survive). Core does not convert between them.
+
+### Invoke
+
+With the `invoke` feature, a binding of type `BindingType::Invoke` lets a guest
+call a function of the host by name. The call carries a name and JSON arguments;
+the handler answers `InvokeResult::Value` (JSON) or `InvokeResult::Error`
+(the message the guest's promise rejects with). The features of a runtime that
+serves the binding turn it on.
 
 ### Images
 

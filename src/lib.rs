@@ -23,6 +23,8 @@ pub use http::{HyperBody, StreamBody};
 
 pub use limits::{BindingLimit, RuntimeLimits};
 pub use log::{LogEvent, LogLevel};
+#[cfg(feature = "invoke")]
+pub use ops::InvokeResult;
 pub use ops::{
     D1Error, D1ErrorKind, D1Meta, D1Op, D1Result, D1Rows, D1Statement, D1StatementResult,
     DatabaseOp, DatabaseResult, DefaultOps, DirectOperations, ImageFormat, ImageOutput,

@@ -111,6 +111,9 @@ pub enum BindingType {
     Worker,
     /// Durable Object namespace
     DurableObject,
+    /// Functions of the host program, called by name (feature `invoke`)
+    #[cfg(feature = "invoke")]
+    Invoke,
 }
 
 /// Binding info passed to the runtime (name + type, no credentials)
@@ -160,6 +163,11 @@ impl BindingInfo {
 
     pub fn durable_object(name: impl Into<String>) -> Self {
         Self::new(name, BindingType::DurableObject)
+    }
+
+    #[cfg(feature = "invoke")]
+    pub fn invoke(name: impl Into<String>) -> Self {
+        Self::new(name, BindingType::Invoke)
     }
 }
 
